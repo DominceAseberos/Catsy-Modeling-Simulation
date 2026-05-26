@@ -142,7 +142,7 @@ if (btnAnalyze) {
         modal.classList.add('scrim--active');
         const loadingDiv = document.getElementById('analytics-loading');
         loadingDiv.style.display = 'block';
-        loadingDiv.innerHTML = '<i id="analyzing-text" style="color:#f1c40f;">Analyzing.</i>';
+        loadingDiv.innerHTML = '<i id="analyzing-text" style="color:#f1c40f;">Analyzing.</i><div id="analyzing-timer" style="margin-top: 15px; font-size: 13px; color: #aaa; font-family: monospace;">Time elapsed: 0.0s</div>';
         document.getElementById('analytics-content').style.display = 'none';
         
         // Animate the dots so user knows it's working
@@ -153,6 +153,15 @@ if (btnAnalyze) {
             const el = document.getElementById('analyzing-text');
             if (el) el.innerText = 'Analyzing' + dots;
         }, 500);
+        
+        const startTime = Date.now();
+        const timerInterval = setInterval(() => {
+            const timerEl = document.getElementById('analyzing-timer');
+            if (timerEl) {
+                const elapsed = (Date.now() - startTime) / 1000;
+                timerEl.innerText = `Time elapsed: ${elapsed.toFixed(1)}s`;
+            }
+        }, 100);
         
         const replicationsCount = parseInt(document.getElementById('cfg-replications')?.value || 10);
         const shiftHours = parseFloat(document.getElementById('cfg-shift-hours')?.value || 2);
@@ -191,6 +200,7 @@ if (btnAnalyze) {
                 body: JSON.stringify(payload)
             });
             clearInterval(animInterval);
+            clearInterval(timerInterval);
             
             if (!res.ok) {
                 throw new Error("Server returned " + res.status);
@@ -206,6 +216,7 @@ if (btnAnalyze) {
             document.getElementById('res-throughput').innerText = data.throughput_per_hour.toFixed(0) + ' / hr';
         } catch (e) {
             clearInterval(animInterval);
+            clearInterval(timerInterval);
             loadingDiv.innerHTML = '<span style="color:#e74c3c">Error: Analysis timed out or failed. Check configuration.</span>';
         }
     });
