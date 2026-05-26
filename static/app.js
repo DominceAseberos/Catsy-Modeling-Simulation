@@ -94,7 +94,8 @@ btnStart.addEventListener('click', () => {
     const resProb = (document.getElementById('cfg-res-prob')?.value || 20) / 100.0;
     const warmupTime = document.getElementById('cfg-warmup')?.value || 0;
 
-    const wsUrl = `ws://${window.location.host}/ws?cashiers=${cashiers}&baristas=${baristas}&tables=${tables}&resTables=${resTables}&arrival=${arrival}&decideMin=${decideMin}&decideMax=${decideMax}&payMin=${payMin}&payMax=${payMax}&prepMin=${prepMin}&prepMax=${prepMax}&dwellMin=${dwellMin}&dwellMax=${dwellMax}&duration=${duration}&balkProb=${balkProb}&renegeProb=${renegeProb}&maxStrikes=${maxStrikes}&takeoutProb=${takeoutProb}&resProb=${resProb}&warmupTime=${warmupTime}`;
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    const wsUrl = `${wsProtocol}${window.location.host}/ws?cashiers=${cashiers}&baristas=${baristas}&tables=${tables}&resTables=${resTables}&arrival=${arrival}&decideMin=${decideMin}&decideMax=${decideMax}&payMin=${payMin}&payMax=${payMax}&prepMin=${prepMin}&prepMax=${prepMax}&dwellMin=${dwellMin}&dwellMax=${dwellMax}&duration=${duration}&balkProb=${balkProb}&renegeProb=${renegeProb}&maxStrikes=${maxStrikes}&takeoutProb=${takeoutProb}&resProb=${resProb}&warmupTime=${warmupTime}`;
     socket = new WebSocket(wsUrl);
 
     socket.onopen = () => {
