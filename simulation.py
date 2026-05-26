@@ -92,10 +92,13 @@ class CafeSimulation:
             # VIP PRE-ORDER FLOW (Bypass cashier and prep)
             self.emit("waiting_table", name, {"is_reservation": True})
             with self.reservation_tables.request() as req:
-                while True:
-                    results = yield req | self.env.timeout(15.0)
-                    if req in results:
-                        break
+                if self.event_queue is None:
+                    yield req
+                else:
+                    while True:
+                        results = yield req | self.env.timeout(15.0)
+                        if req in results:
+                            break
                     
                 self.emit("seated_waiting_order", name, {"is_reservation": True})
                 # Drink is already made and waiting for them
@@ -143,36 +146,52 @@ class CafeSimulation:
         strikes = 0
         
         with target_cashier.request() as req:
-            while True:
-                results = yield req | self.env.timeout(patience_interval)
-                
-                if req in results:
-                    # Record waiting time
+            if self.event_queue is None:
+                if will_renege:
+                    total_patience = sum(random.uniform(15.0, 30.0) for _ in range(max_strikes))
+                    results = yield req | self.env.timeout(total_patience)
+                    if req in results:
+                        wait_time = self.env.now - arrival_time
+                        if self.env.now > self.config.get("warmup_time", 0):
+                            self.waiting_times.append(wait_time)
+                    else:
+                        return
+                else:
+                    yield req
                     wait_time = self.env.now - arrival_time
                     if self.env.now > self.config.get("warmup_time", 0):
                         self.waiting_times.append(wait_time)
-                    break # We reached the front of the queue!
+            else:
+                while True:
+                    results = yield req | self.env.timeout(patience_interval)
                     
-                # Patience interval passed!
-                position = -1
-                if req in target_cashier.queue:
-                    position = target_cashier.queue.index(req)
+                    if req in results:
+                        # Record waiting time
+                        wait_time = self.env.now - arrival_time
+                        if self.env.now > self.config.get("warmup_time", 0):
+                            self.waiting_times.append(wait_time)
+                        break # We reached the front of the queue!
+                        
+                    # Patience interval passed!
+                    position = -1
+                    if req in target_cashier.queue:
+                        position = target_cashier.queue.index(req)
+                        
+                    # If they are 1st, 2nd, or 3rd in line, sunk cost fallacy kicks in
+                    if position >= 0 and position <= 2:
+                        self.emit("frustrated_waiting", name)
+                        yield req # Stick it out and wait indefinitely
+                        break
                     
-                # If they are 1st, 2nd, or 3rd in line, sunk cost fallacy kicks in
-                if position >= 0 and position <= 2:
-                    self.emit("frustrated_waiting", name)
-                    yield req # Stick it out and wait indefinitely
-                    break
-                
-                # Otherwise, they get a strike
-                strikes += 1
-                if strikes >= max_strikes:
-                    # They've hit their limit, they leave
-                    self.emit("renege_leave", name, {"cashier_index": shortest_queue_idx})
-                    return
-                else:
-                    # Warning strike!
-                    self.emit("patience_warning", name, {"strike": strikes, "max": max_strikes})
+                    # Otherwise, they get a strike
+                    strikes += 1
+                    if strikes >= max_strikes:
+                        # They've hit their limit, they leave
+                        self.emit("renege_leave", name, {"cashier_index": shortest_queue_idx})
+                        return
+                    else:
+                        # Warning strike!
+                        self.emit("patience_warning", name, {"strike": strikes, "max": max_strikes})
             
             # Deciding Time
             decide_time = random.uniform(self.config["decide_min"], self.config["decide_max"])
@@ -195,12 +214,15 @@ class CafeSimulation:
             self.emit("waiting_pickup", name)
             
             barista_req = self.baristas.get()
-            while True:
-                results = yield barista_req | self.env.timeout(60.0)
-                if barista_req in results:
-                    barista_idx = results[barista_req]
-                    break
-                self.emit("prep_waiting_frustration", name)
+            if self.event_queue is None:
+                barista_idx = yield barista_req
+            else:
+                while True:
+                    results = yield barista_req | self.env.timeout(60.0)
+                    if barista_req in results:
+                        barista_idx = results[barista_req]
+                        break
+                    self.emit("prep_waiting_frustration", name)
                 
             prep_time = self._get_prep_time_and_emit_pace()
             self.emit("start_prep", name, {
@@ -208,13 +230,16 @@ class CafeSimulation:
                 "duration": prep_time
             })
             
-            elapsed = 0.0
-            while elapsed < prep_time:
-                chunk = min(60.0, prep_time - elapsed)
-                yield self.env.timeout(chunk)
-                elapsed += chunk
-                if elapsed < prep_time:
-                    self.emit("prep_waiting_frustration", name)
+            if self.event_queue is None:
+                yield self.env.timeout(prep_time)
+            else:
+                elapsed = 0.0
+                while elapsed < prep_time:
+                    chunk = min(60.0, prep_time - elapsed)
+                    yield self.env.timeout(chunk)
+                    elapsed += chunk
+                    if elapsed < prep_time:
+                        self.emit("prep_waiting_frustration", name)
                     
             self.baristas.put(barista_idx) # Free the barista
             
@@ -227,23 +252,29 @@ class CafeSimulation:
             self.emit("waiting_table", name, {"is_reservation": False})
             
             with self.regular_tables.request() as req:
-                while True:
-                    results = yield req | self.env.timeout(60.0)
-                    if req in results:
-                        break
-                    self.emit("prep_waiting_frustration", name)
+                if self.event_queue is None:
+                    yield req
+                else:
+                    while True:
+                        results = yield req | self.env.timeout(60.0)
+                        if req in results:
+                            break
+                        self.emit("prep_waiting_frustration", name)
                     
                 # Customer is now seated, but waiting for their order
                 self.emit("seated_waiting_order", name, {"is_reservation": is_reservation})
                 
                 # 3. Barista prepares the order (Customer is at the table during this time)
                 barista_req = self.baristas.get()
-                while True:
-                    results = yield barista_req | self.env.timeout(60.0)
-                    if barista_req in results:
-                        barista_idx = results[barista_req]
-                        break
-                    self.emit("prep_waiting_frustration", name)
+                if self.event_queue is None:
+                    barista_idx = yield barista_req
+                else:
+                    while True:
+                        results = yield barista_req | self.env.timeout(60.0)
+                        if barista_req in results:
+                            barista_idx = results[barista_req]
+                            break
+                        self.emit("prep_waiting_frustration", name)
                     
                 prep_time = self._get_prep_time_and_emit_pace()
                 self.emit("start_prep", name, {
@@ -251,13 +282,16 @@ class CafeSimulation:
                     "duration": prep_time
                 })
                 
-                elapsed = 0.0
-                while elapsed < prep_time:
-                    chunk = min(60.0, prep_time - elapsed)
-                    yield self.env.timeout(chunk)
-                    elapsed += chunk
-                    if elapsed < prep_time:
-                        self.emit("prep_waiting_frustration", name)
+                if self.event_queue is None:
+                    yield self.env.timeout(prep_time)
+                else:
+                    elapsed = 0.0
+                    while elapsed < prep_time:
+                        chunk = min(60.0, prep_time - elapsed)
+                        yield self.env.timeout(chunk)
+                        elapsed += chunk
+                        if elapsed < prep_time:
+                            self.emit("prep_waiting_frustration", name)
                         
                 self.baristas.put(barista_idx) # Free the barista
                 
