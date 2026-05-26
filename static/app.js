@@ -272,7 +272,7 @@ function resetSimulation() {
                     <div id="cashier-queue-${i}" class="people-container" style="flex:1; height:100%; border: 1px dashed rgba(255,255,255,0.1);"></div>
                     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
                         ${timerHtml}
-                        <div id="cashier-staff-${i}" class="staff cashier-staff" style="width: ${staffSize}px; height: ${staffSize}px; font-size: ${fontSize}px; min-height: ${staffSize}px;">C${i+1}</div>
+                        <div id="cashier-staff-${i}" class="staff cashier-staff" style="width: ${staffSize}px; height: ${staffSize}px; font-size: ${fontSize}px; min-height: ${staffSize}px; background-image: url('cashier.png'); background-size: cover; background-position: center; background-color: transparent; border: none; color: transparent;">C${i+1}</div>
                     </div>
                 </div>
             `;
