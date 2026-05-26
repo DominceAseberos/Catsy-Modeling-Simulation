@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catsy Coffee Simulation</title>
+    <link rel="stylesheet" href="/static/style.css?v=4">
+</head>
+<body>
+    <header class="header">
+        <div class="header__logo">Catsy Coffee</div>
+        
+        <div class="header__controls">
+            <button id="btn-settings" class="button button--secondary">⚙️ Settings</button>
+            <div style="display: flex; align-items: center; gap: 5px; background: rgba(0,0,0,0.3); padding: 5px 10px; border-radius: 5px;">
+                <label for="cfg-shift-hours" style="color:#aaa; font-size:12px;">Shift (hrs):</label>
+                <input type="number" id="cfg-shift-hours" value="2" min="1" max="24" style="width: 40px; background: #121212; border: 1px solid #555; color: white; padding: 2px; border-radius: 3px;">
+                <label for="cfg-replications" style="color:#aaa; font-size:12px; margin-left: 5px;">Reps:</label>
+                <input type="number" id="cfg-replications" value="10" min="1" max="100" style="width: 50px; background: #121212; border: 1px solid #555; color: white; padding: 2px; border-radius: 3px;">
+                <button id="btn-analyze" class="button button--action" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">Run Analytics</button>
+            </div>
+            <button id="btn-start" class="button">Connect & Start</button>
+            <button id="btn-stop" class="button button--secondary">Disconnect</button>
+            
+            <div class="status-indicator">
+                <span id="connection-status" class="status-indicator__dot status-indicator__dot--disconnected"></span>
+                <span id="status-text" style="font-size: 0.8rem; color: #aaa;">Disconnected</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Scrim and Settings Modal -->
+    <div id="settings-scrim" class="scrim">
+        <div class="modal">
+            <div class="modal__header">
+                <h2 class="modal__title">Simulation Configuration</h2>
+                <button id="btn-close-settings" class="button button--secondary">Close</button>
+            </div>
+            
+            <div class="config-grid">
+                <!-- Staff & Space -->
+                <div class="config-section">
+                    <h3 class="config-section__title">Staff & Space</h3>
+                    <div class="config-item">
+                        <label>Cashiers <span class="info-icon" data-tooltip="Number of staff taking orders at the front desk (Max 10)">ⓘ</span></label>
+                        <input type="number" class="config-item__input" id="cfg-cashiers" value="1" min="1" max="10">
+                    </div>
+                    <div class="config-item">
+                        <label>Baristas <span class="info-icon" data-tooltip="Number of staff preparing drinks (Max 15)">ⓘ</span></label>
+                        <input type="number" class="config-item__input" id="cfg-baristas" value="2" min="1" max="15">
+                    </div>
+                    <div class="config-item">
+                        <label>Tables <span class="info-icon" data-tooltip="Total seating capacity for walk-in dine-in customers">ⓘ</span></label>
+                        <input type="number" class="config-item__input" id="cfg-tables" value="5" min="1">
+                    </div>
+                    <div class="config-item">
+                        <label>Res. Tables <span class="info-icon" data-tooltip="Dedicated tables reserved for pre-order VIP customers">ⓘ</span></label>
+                        <input type="number" class="config-item__input" id="cfg-res-tables" value="2" min="0">
+                    </div>
+                </div>
+
+                <!-- Customer Traffic -->
+                <div class="config-section">
+                    <h3 class="config-section__title">Customer Traffic</h3>
+                    <div class="config-item">
+                        <label>Scenario <span class="info-icon" data-tooltip="Predefined traffic levels that set the average arrival rate">ⓘ</span></label>
+                        <select id="cfg-scenario" class="config-item__select">
+                            <option value="90.0">Silent Hour (90s)</option>
+                            <option value="45.0" selected>Medium Hour (45s)</option>
+                            <option value="15.0">Peak Hour (15s)</option>
+                            <option value="custom">Custom...</option>
+                        </select>
+                    </div>
+                    <div class="config-item">
+                        <label>Avg Arrival Rate (s) <span class="info-icon" data-tooltip="Average time in seconds between each new customer arriving">ⓘ</span></label>
+                        <input type="number" class="config-item__input" id="cfg-arrival" value="45.0" step="0.5">
+                    </div>
+                    <div class="config-item">
+                        <label>Max Duration (s) <span class="info-icon" data-tooltip="Time limit for the simulation (0 for infinite)">ⓘ</span></label>
+                        <input type="number" class="config-item__input" id="cfg-duration" value="0" step="100">
+                    </div>
+                    <div class="config-item">
+                        <label>Warm-Up Time (s) <span class="info-icon" data-tooltip="Initial period ignored by analytics to let the cafe fill up">ⓘ</span></label>
+                        <input type="number" class="config-item__input" id="cfg-warmup" value="30" step="10">
+                    </div>
+                </div>
+
+                <!-- Walkout Behavior -->
+                <div class="config-section">
+                    <h3 class="config-section__title">Customer Logic</h3>
+                    <div class="config-item">
+                        <label>Takeout (%) <span class="info-icon info-icon--right" data-tooltip="Percentage of customers who grab their drink and leave immediately">ⓘ</span></label>
+                        <input type="number" class="config-item__input" id="cfg-takeout-prob" value="50" min="0" max="100">
+                    </div>
+                    <div class="config-item">
+                        <label>Reservation (%) <span class="info-icon info-icon--right" data-tooltip="Percentage of dine-in customers who are VIPs with reserved tables">ⓘ</span></label>
+                        <input type="number" class="config-item__input" id="cfg-res-prob" value="20" min="0" max="100">
+                    </div>
+                    <div class="config-item">
+                        <label>Line Too Long (%) <span class="info-icon info-icon--right" data-tooltip="Chance a customer walks out immediately if the entrance is crowded">ⓘ</span></label>
+                        <input type="number" class="config-item__input" id="cfg-balk-prob" value="50" min="0" max="100">
+                    </div>
+                    <div class="config-item">
+                        <label>Tired of Waiting (%) <span class="info-icon info-icon--right" data-tooltip="Chance a customer storms out if they wait in the queue too long">ⓘ</span></label>
+                        <input type="number" class="config-item__input" id="cfg-renege-prob" value="30" min="0" max="100">
+                    </div>
+                    <div class="config-item">
+                        <label>Max Wait Strikes <span class="info-icon info-icon--right" data-tooltip="How many times a customer gets angry before they decide to leave">ⓘ</span></label>
+                        <input type="number" class="config-item__input" id="cfg-max-strikes" value="3" min="1" max="10">
+                    </div>
+                </div>
+
+                <!-- Process Timings -->
+                <div class="config-section">
+                    <h3 class="config-section__title">Process Timings (min-max s)</h3>
+                    <div class="config-item" style="justify-content: flex-start; gap: 5px;">
+                        <label style="flex:1;">Menu Browsing <span class="info-icon" data-tooltip="Time spent looking at the menu before ordering (min-max)">ⓘ</span></label>
+                        <input type="number" class="config-item__input" id="cfg-decide-min" value="10"> -
+                        <input type="number" class="config-item__input" id="cfg-decide-max" value="60">
+                    </div>
+                    <div class="config-item" style="justify-content: flex-start; gap: 5px;">
+                        <label style="flex:1;">Payment Time <span class="info-icon" data-tooltip="Time spent paying the cashier (min-max)">ⓘ</span></label>
+                        <input type="number" class="config-item__input" id="cfg-pay-min" value="2"> -
+                        <input type="number" class="config-item__input" id="cfg-pay-max" value="10">
+                    </div>
+                    <div class="config-item" style="justify-content: flex-start; gap: 5px;">
+                        <label style="flex:1;">Drink Prep Time <span class="info-icon" data-tooltip="Time for the barista to make the drink (min-max)">ⓘ</span></label>
+                        <input type="number" class="config-item__input" id="cfg-prep-min" value="60"> -
+                        <input type="number" class="config-item__input" id="cfg-prep-max" value="180">
+                    </div>
+                    <div class="config-item" style="justify-content: flex-start; gap: 5px;">
+                        <label style="flex:1;">Dine-In Time <span class="info-icon" data-tooltip="Time a customer spends eating at a table (min-max)">ⓘ</span></label>
+                        <input type="number" class="config-item__input" id="cfg-dwell-min" value="900"> -
+                        <input type="number" class="config-item__input" id="cfg-dwell-max" value="3600">
+                    </div>
+                </div>
+
+                <!-- Legend / Glossary -->
+                <div class="config-section" style="grid-column: 1 / -1;">
+                    <h3 class="config-section__title">Legend & Icons</h3>
+                    <div style="display: flex; flex-wrap: wrap; gap: 1rem; color: #ccc; font-size: 0.85rem;">
+                        <div style="flex: 1; min-width: 250px;">
+                            <div style="margin-bottom: 8px; color: var(--color-accent); font-weight: bold;">Customer States</div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="font-size: 1.2rem;">💧</span> Level 1 Frustration (Waiting)</div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="font-size: 1.2rem;">😤</span> Level 2 Frustration (Annoyed)</div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="font-size: 1.2rem;">💢</span> Level 3 Frustration (Angry)</div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="font-size: 1.2rem;">🛑</span> Left because line was too long (Walkout)</div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="font-size: 1.2rem;">🚶</span> Walked out tired of waiting in queue</div>
+                        </div>
+                        <div style="flex: 1; min-width: 250px;">
+                            <div style="margin-bottom: 8px; color: var(--color-accent); font-weight: bold;">Entities & Events</div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="font-size: 1.2rem;">💰</span> Cashier processing payment</div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="font-size: 1.2rem;">🛍️</span> Customer taking order to-go</div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; border: 1px dashed #f39c12; color: #f39c12; text-align: center; line-height: 20px; font-size: 0.6rem; font-weight: bold;">[R]</span> VIP Pre-Reserved Table</div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span class="staff" style="width: 24px; height: 24px; font-size: 0.7rem; box-shadow: none;">C1</span> Cashier / Barista Staff</div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background-color: var(--color-customer); color: white; text-align: center; line-height: 20px; font-size: 0.7rem; font-weight: bold;">1</span> Customer (Number = ID)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main class="main-layout">
+        <!-- Dashboard for stats -->
+        <aside class="dashboard">
+            <h3 class="dashboard__title">Live Stats</h3>
+            
+            <div class="dashboard__stat-box dashboard__stat-box--info">
+                <span class="dashboard__stat-label">Simulation Time</span>
+                <strong id="sim-time" class="dashboard__stat-value dashboard__stat-value--info">0.0s</strong>
+                <span id="warmup-indicator" style="color: #f39c12; font-size: 12px; display: none; font-weight: bold; animation: pulse 1.5s infinite;">WARMING UP</span>
+            </div>
+            
+            <div class="dashboard__stat-box">
+                <span class="dashboard__stat-label">Current Pace</span>
+                <strong id="current-pace" class="dashboard__stat-value">Steady ☕</strong>
+            </div>
+            
+            <div class="dashboard__stat-box">
+                <span class="dashboard__stat-label">Total Customers</span>
+                <strong id="total-customers" class="dashboard__stat-value">0</strong>
+            </div>
+            
+            <div class="dashboard__stat-box dashboard__stat-box--alert">
+                <span class="dashboard__stat-label">Walkouts (Lost)</span>
+                <strong id="lost-customers" class="dashboard__stat-value dashboard__stat-value--error">0</strong>
+            </div>
+            
+            <div class="dashboard__stat-box">
+                <span class="dashboard__stat-label">Cashier Queue</span>
+                <strong id="cashier-queue-len" class="dashboard__stat-value">0</strong>
+            </div>
+            
+            <div class="dashboard__stat-box">
+                <span class="dashboard__stat-label">Pickup / Waiting Area</span>
+                <strong id="waiting-area-len" class="dashboard__stat-value">0</strong>
+            </div>
+            
+            <div class="dashboard__stat-box">
+                <span class="dashboard__stat-label">Total Dine-In</span>
+                <strong id="total-dine-in" class="dashboard__stat-value">0</strong>
+            </div>
+            
+            <div class="dashboard__stat-box">
+                <span class="dashboard__stat-label">Total Takeout</span>
+                <strong id="total-takeout" class="dashboard__stat-value">0</strong>
+            </div>
+            
+            <div class="dashboard__stat-box dashboard__stat-box--success">
+                <span class="dashboard__stat-label">Served / Left</span>
+                <strong id="served-customers" class="dashboard__stat-value dashboard__stat-value--success">0</strong>
+            </div>
+        </aside>
+
+        <!-- Visual representation of the cafe -->
+        <section class="simulation-floor">
+            
+            <div class="simulation-floor__row simulation-floor__row--top">
+                <div class="area">
+                    <h4 class="area__title">Entrance</h4>
+                    <div class="area__content">
+                        <div id="entrance" class="people-container"></div>
+                    </div>
+                </div>
+
+                <div class="area">
+                    <h4 class="area__title">Cashier (Order & Pay)</h4>
+                    <div class="area__content">
+                        <div id="cashier-desk-container" class="desk desk--vertical" style="width: 100%; justify-content: center; gap: 2px;">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="area">
+                    <h4 class="area__title">Barista (Prep)</h4>
+                    <div class="area__content">
+                        <div class="desk desk--horizontal">
+                            <div id="barista-staff-container" style="display: flex; flex-wrap: wrap; gap: 10px;">
+                                <div class="staff">B1</div>
+                                <div class="staff">B2</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="simulation-floor__row simulation-floor__row--bottom">
+                <div class="area">
+                    <h4 class="area__title">Pickup / Waiting Area</h4>
+                    <div class="area__content">
+                        <div id="waiting-area" class="people-container"></div>
+                    </div>
+                </div>
+
+                <div class="area" style="flex: 2;">
+                    <h4 class="area__title">Dine-In Area</h4>
+                    <div class="area__content">
+                        <div id="tables" class="tables-container">
+                            <!-- Dynamically populated -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="floating-layer"></div>
+
+    <!-- Analytics Modal -->
+    <div id="analytics-modal" class="scrim">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal__header">
+                <h2 class="modal__title" style="color: var(--color-accent);">Statistical Batch Results</h2>
+            </div>
+            <p id="analytics-subtitle" style="color:var(--color-text-secondary); font-size:14px; margin-bottom:20px;">Averaged over independent simulated days (2 hours each, minus warm-up).</p>
+            
+            <div id="analytics-loading" style="text-align:center; padding:20px; font-size:18px;">
+                <i id="analyzing-text">Analyzing...</i>
+            </div>
+            
+            <div id="analytics-content" style="display:none;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
+                    <span>Avg Wait Time (Cashier):</span>
+                    <strong id="res-wait" style="color:var(--color-error);">0.0s</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
+                    <span>Avg Cycle Time (Total):</span>
+                    <strong id="res-cycle" style="color:var(--color-info);">0.0s</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:25px;">
+                    <span>Throughput:</span>
+                    <strong id="res-throughput" style="color:var(--color-success);">0/hr</strong>
+                </div>
+            </div>
+            
+            <button id="btn-close-modal" class="button button--secondary" style="width: 100%;">Close</button>
+        </div>
+    </div>
+
+    <script src="/static/app.js?v=14"></script>
+</body>
+</html>
