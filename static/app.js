@@ -272,7 +272,7 @@ function resetSimulation() {
                     <div id="cashier-queue-${i}" class="people-container" style="flex:1; height:100%; border: 1px dashed rgba(255,255,255,0.1);"></div>
                     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
                         ${timerHtml}
-                        <div id="cashier-staff-${i}" class="staff cashier-staff" style="width: ${staffSize}px; height: ${staffSize}px; font-size: ${fontSize}px; min-height: ${staffSize}px; background-image: url('cashier.png'); background-size: cover; background-position: center; background-color: transparent; border: none; color: transparent;">C${i+1}</div>
+                        <div id="cashier-staff-${i}" class="staff cashier-staff" style="width: ${staffSize}px; height: ${staffSize}px; font-size: ${fontSize}px; min-height: ${staffSize}px; background-image: url('/static/cashier.png'); background-size: cover; background-position: center; background-color: transparent; border: none; color: transparent;">C${i+1}</div>
                     </div>
                 </div>
             `;
@@ -288,7 +288,7 @@ function resetSimulation() {
             baristaContainer.innerHTML += `
                 <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
                     <div id="timer-barista-${i}" style="font-size: 10px; color: #f39c12; font-family: monospace; height: 12px;">Idle</div>
-                    <div id="barista-staff-${i}" class="staff barista-staff" style="background-image: url('barista.png'); background-size: cover; background-position: center; background-color: transparent; border: none; color: transparent;">B${i+1}</div>
+                    <div id="barista-staff-${i}" class="staff barista-staff" style="background-image: url('/static/barista.png'); background-size: cover; background-position: center; background-color: transparent; border: none; color: transparent;">B${i+1}</div>
                     <div id="status-barista-${i}" style="font-size: 10px; color: #aaa; text-align: center; height: 12px; white-space: nowrap;">Idle</div>
                 </div>
             `;
