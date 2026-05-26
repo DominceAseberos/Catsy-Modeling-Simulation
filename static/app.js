@@ -11,6 +11,7 @@ let totalDineIn = 0;
 let totalTakeout = 0;
 let cashierQueueLen = 0;
 let waitingAreaLen = 0;
+let pickupAreaLen = 0;
 
 // DOM Elements
 const btnStart = document.getElementById('btn-start');
@@ -51,6 +52,7 @@ let cashierQueueLens = []; // Array of lengths per cashier
 const cashierOffsets = new Map();
 const customerCashierMap = new Map();
 const waitingAreaOffsets = new Map();
+const pickupAreaOffsets = new Map();
 const customerBaristaMap = new Map();
 let availableTables = [];
 let availableResTables = [];
@@ -220,6 +222,7 @@ function resetSimulation() {
     cashierOffsets.clear();
     customerCashierMap.clear();
     waitingAreaOffsets.clear();
+    pickupAreaOffsets.clear();
     customerBaristaMap.clear();
     for (let cIdx in cashierTimers) {
         clearInterval(cashierTimers[cIdx].interval);
@@ -239,6 +242,7 @@ function resetSimulation() {
     totalTakeout = 0;
     cashierQueueLens = [];
     waitingAreaLen = 0;
+    pickupAreaLen = 0;
     
     // Dynamically draw cashiers
     const cashiersCount = parseInt(document.getElementById('cfg-cashiers').value);
@@ -333,7 +337,7 @@ function updateStats(time) {
     const totalCashierQueue = cashierQueueLens.reduce((a, b) => a + b, 0);
     document.getElementById('cashier-queue-len').innerText = totalCashierQueue;
     
-    document.getElementById('waiting-area-len').innerText = waitingAreaLen;
+    document.getElementById('waiting-area-len').innerText = waitingAreaLen + pickupAreaLen;
 }
 
 // Coordinate calculation helpers
@@ -741,9 +745,9 @@ function handleEvent(data) {
             totalTakeout++;
             document.getElementById('total-takeout').innerText = totalTakeout;
             // Go to waiting/pickup area if tables are full, or if waiting for takeout
-            waitingAreaLen++;
-            waitingAreaOffsets.set(id, waitingAreaLen - 1);
-            moveCustomer(id, 'waiting-area', waitingAreaLen - 1);
+            pickupAreaLen++;
+            pickupAreaOffsets.set(id, pickupAreaLen - 1);
+            moveCustomer(id, 'pickup-area', pickupAreaLen - 1);
             
             // Customer left the cashier, reset the cashier timer
             const leftCIdxTakeout = customerCashierMap.get(id);
@@ -892,6 +896,9 @@ function handleEvent(data) {
             if (waitingAreaOffsets.has(id)) {
                 waitingAreaLen = Math.max(0, waitingAreaLen - 1);
                 waitingAreaOffsets.delete(id);
+            } else if (pickupAreaOffsets.has(id)) {
+                pickupAreaLen = Math.max(0, pickupAreaLen - 1);
+                pickupAreaOffsets.delete(id);
             }
             
             // Clear table status and mark table as available again (Dine-in customers)

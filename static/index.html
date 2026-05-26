@@ -218,14 +218,14 @@
             
             <div class="simulation-floor__row simulation-floor__row--top">
                 <div class="area">
-                    <h4 class="area__title">Entrance</h4>
+                    <h4 class="area__title">Entrance <span class="info-icon" data-tooltip="The first step where customers enter the cafe and decide whether to stay based on the current queue length.">ⓘ</span></h4>
                     <div class="area__content">
                         <div id="entrance" class="people-container"></div>
                     </div>
                 </div>
 
                 <div class="area">
-                    <h4 class="area__title">Cashier (Order & Pay)</h4>
+                    <h4 class="area__title">Cashier (Order & Pay) <span class="info-icon" data-tooltip="Where customers queue to place their orders and pay. High queues here increase frustration and walkouts.">ⓘ</span></h4>
                     <div class="area__content">
                         <div id="cashier-desk-container" class="desk desk--vertical" style="width: 100%; justify-content: center; gap: 2px;">
                         </div>
@@ -233,7 +233,7 @@
                 </div>
 
                 <div class="area">
-                    <h4 class="area__title">Barista (Prep)</h4>
+                    <h4 class="area__title">Barista (Prep) <span class="info-icon info-icon--right" data-tooltip="Where staff prepare orders. Drinks take varying amounts of time depending on complexity.">ⓘ</span></h4>
                     <div class="area__content">
                         <div class="desk desk--horizontal">
                             <div id="barista-staff-container" style="display: flex; flex-wrap: wrap; gap: 10px;">
@@ -247,14 +247,21 @@
             
             <div class="simulation-floor__row simulation-floor__row--bottom">
                 <div class="area">
-                    <h4 class="area__title">Pickup / Waiting Area</h4>
-                    <div class="area__content">
-                        <div id="waiting-area" class="people-container"></div>
+                    <h4 class="area__title">Waiting Area <span class="info-icon" data-tooltip="Where customers wait for their prepared orders after paying. Takeout customers leave the cafe from here.">ⓘ</span></h4>
+                    <div class="area__content" style="flex-direction: row;">
+                        <div style="flex: 1; border-right: 1px solid rgba(255,255,255,0.1); padding-right: 10px; display: flex; flex-direction: column;">
+                            <h5 style="color:#aaa; font-size: 0.65rem; margin-bottom: 5px; text-transform: uppercase;">Dine-In Waiting</h5>
+                            <div id="waiting-area" class="people-container" style="flex: 1;"></div>
+                        </div>
+                        <div style="flex: 1; padding-left: 10px; display: flex; flex-direction: column;">
+                            <h5 style="color:#aaa; font-size: 0.65rem; margin-bottom: 5px; text-transform: uppercase;">Takeout Pickup</h5>
+                            <div id="pickup-area" class="people-container" style="flex: 1;"></div>
+                        </div>
                     </div>
                 </div>
 
                 <div class="area" style="flex: 2;">
-                    <h4 class="area__title">Dine-In Area</h4>
+                    <h4 class="area__title">Dine-In Area <span class="info-icon" data-tooltip="Where dine-in customers consume their orders. Reserved tables are held for specific customers. Full tables = walkouts.">ⓘ</span></h4>
                     <div class="area__content">
                         <div id="tables" class="tables-container">
                             <!-- Dynamically populated -->
