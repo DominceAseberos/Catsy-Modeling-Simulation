@@ -139,7 +139,7 @@ const btnCloseModal = document.getElementById('btn-close-modal');
 if (btnAnalyze) {
     btnAnalyze.addEventListener('click', async () => {
         enforceBounds();
-        modal.style.display = 'flex';
+        modal.classList.add('scrim--active');
         const loadingDiv = document.getElementById('analytics-loading');
         loadingDiv.style.display = 'block';
         loadingDiv.innerHTML = '<i id="analyzing-text" style="color:#f1c40f;">Analyzing.</i>';
@@ -213,7 +213,7 @@ if (btnAnalyze) {
 
 if (btnCloseModal) {
     btnCloseModal.addEventListener('click', () => {
-        modal.style.display = 'none';
+        modal.classList.remove('scrim--active');
     });
 }
 
