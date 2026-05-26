@@ -287,6 +287,7 @@ function resetSimulation() {
         for (let i = 0; i < baristasCount; i++) {
             baristaContainer.innerHTML += `
                 <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+                    <div id="working-anim-${i}" class="working-anim">☕</div>
                     <div id="timer-barista-${i}" style="font-size: 10px; color: #f39c12; font-family: monospace; height: 12px;">Idle</div>
                     <div id="barista-staff-${i}" class="staff barista-staff" style="background-image: url('/static/barista.png'); background-size: cover; background-position: center; background-color: transparent; border: none; color: transparent;">B${i+1}</div>
                     <div id="status-barista-${i}" style="font-size: 10px; color: #aaa; text-align: center; height: 12px; white-space: nowrap;">Idle</div>
@@ -823,6 +824,9 @@ function handleEvent(data) {
                 bStatus.style.color = '#e94f37';
             }
             
+            const bAnim = document.getElementById(`working-anim-${bIdx}`);
+            if (bAnim) bAnim.style.display = 'block';
+            
             // Start the barista countdown timer
             if (data.duration) {
                 if (baristaTimers[bIdx]) clearInterval(baristaTimers[bIdx].interval);
@@ -875,6 +879,9 @@ function handleEvent(data) {
                     finishedBStatus.innerText = 'Idle';
                     finishedBStatus.style.color = '#aaa';
                 }
+                const bAnim = document.getElementById(`working-anim-${finishedBIdx}`);
+                if (bAnim) bAnim.style.display = 'none';
+                
                 customerBaristaMap.delete(id);
                 showPopUpIcon(`barista-staff-${finishedBIdx}`, '☕');
             }
