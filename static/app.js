@@ -271,6 +271,7 @@ function resetSimulation() {
                 <div style="display: flex; flex-direction: row; align-items: center; width: 100%; flex: 1; min-height: 0; justify-content: flex-end; gap: 5px;">
                     <div id="cashier-queue-${i}" class="people-container" style="flex:1; height:100%; border: 1px dashed rgba(255,255,255,0.1);"></div>
                     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
+                        <div id="working-anim-cashier-${i}" class="working-anim">💵</div>
                         ${timerHtml}
                         <div id="cashier-staff-${i}" class="staff cashier-staff" style="width: ${staffSize}px; height: ${staffSize}px; font-size: ${fontSize}px; min-height: ${staffSize}px; background-image: url('/static/cashier.png'); background-size: cover; background-position: center; background-color: transparent; border: none; color: transparent;">C${i+1}</div>
                     </div>
@@ -740,6 +741,11 @@ function handleEvent(data) {
             
         case 'start_paying':
             // Customer is paying, no physical move needed, just logical state
+            const payingCIdx = customerCashierMap.get(id);
+            if (payingCIdx !== undefined) {
+                const cAnim = document.getElementById(`working-anim-cashier-${payingCIdx}`);
+                if (cAnim) cAnim.style.display = 'block';
+            }
             break;
             
         case 'waiting_pickup':
@@ -759,6 +765,8 @@ function handleEvent(data) {
                     timerEl.innerText = 'Idle';
                     timerEl.style.color = '#f39c12';
                 }
+                const cAnim = document.getElementById(`working-anim-cashier-${leftCIdxTakeout}`);
+                if (cAnim) cAnim.style.display = 'none';
                 showPopUpIcon(`cashier-staff-${leftCIdxTakeout}`, '💰');
             }
             break;
@@ -780,6 +788,8 @@ function handleEvent(data) {
                     timerEl.innerText = 'Idle';
                     timerEl.style.color = '#f39c12';
                 }
+                const cAnim = document.getElementById(`working-anim-cashier-${leftCIdx}`);
+                if (cAnim) cAnim.style.display = 'none';
                 showPopUpIcon(`cashier-staff-${leftCIdx}`, '💰');
             }
             break;
