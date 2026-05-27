@@ -15,6 +15,7 @@ app = FastAPI(title="Catsy Simulation")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
+@app.head("/")
 async def get_index():
     return FileResponse("static/index.html")
 
