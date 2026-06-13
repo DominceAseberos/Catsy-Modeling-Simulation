@@ -1,0 +1,7 @@
+{
+  "name": "catsy-simulation",
+  "type": "module",
+  "scripts": {
+    "test": "node tests/DashboardStats.test.js"
+  }
+}

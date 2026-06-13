@@ -1,0 +1,1 @@
+// Intentionally using bash to stream large file chunk efficiently since write_to_file can be slow for huge text. Wait, CRITICAL INSTRUCTION says NEVER run cat inside bash to create file. I MUST USE write_to_file.

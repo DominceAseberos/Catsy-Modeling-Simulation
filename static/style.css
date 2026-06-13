@@ -128,11 +128,11 @@ body {
     background-color: var(--color-bg-surface);
     border-radius: 8px;
     box-shadow: var(--shadow-dp5);
-    width: 90%;
-    max-width: 900px;
-    max-height: 90vh;
+    width: 95vw;
+    max-width: 1400px;
+    max-height: 95vh;
     overflow-y: auto;
-    padding: 2rem;
+    padding: 3rem;
     transform: translateY(20px);
     transition: transform 0.3s ease;
 }
@@ -151,7 +151,7 @@ body {
 }
 
 .modal__title {
-    font-size: 1.5rem;
+    font-size: 2rem;
     color: var(--color-text-primary);
 }
 
@@ -170,19 +170,19 @@ body {
 }
 
 .config-section__title {
-    font-size: 0.9rem;
+    font-size: 1.2rem;
     color: var(--color-text-secondary);
     text-transform: uppercase;
     letter-spacing: 1px;
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
 }
 
 .config-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.8rem;
-    font-size: 0.85rem;
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
     color: #ccc;
 }
 
@@ -190,20 +190,22 @@ body {
     background: var(--color-bg-base);
     border: 1px solid #555;
     color: white;
-    padding: 0.4rem;
+    padding: 0.6rem;
     border-radius: 4px;
-    width: 60px;
+    width: 80px;
     text-align: right;
+    font-size: 1.1rem;
 }
 
 .config-item__select {
     background: var(--color-bg-base);
     border: 1px solid #555;
     color: white;
-    padding: 0.4rem;
+    padding: 0.6rem;
     border-radius: 4px;
     flex-grow: 1;
     margin-left: 1rem;
+    font-size: 1.1rem;
 }
 
 /* Tooltip Icons */
@@ -584,4 +586,147 @@ body {
     font-size: 14px;
     animation: bounceSteam 1s infinite ease-in-out;
     height: 16px;
+}
+
+.modern-timer {
+    font-size: 11px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, #f39c12, #d35400);
+    padding: 3px 6px;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(243, 156, 18, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    transition: all 0.3s ease;
+}
+
+.modern-timer::before {
+    content: '⏱️';
+    font-size: 10px;
+}
+
+.modern-timer.idle {
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: none;
+    color: #888;
+}
+.modern-timer.idle::before {
+    filter: grayscale(100%) opacity(0.5);
+}
+
+/* In-Context UI Controls */
+.area__header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 5px;
+    margin-bottom: 10px;
+}
+
+.area__title {
+    margin: 0;
+    border-bottom: none;
+    padding-bottom: 0;
+    margin-bottom: 0;
+}
+
+.area__controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-ctrl {
+    background: #333;
+    border: 1px solid #555;
+    color: white;
+    cursor: pointer;
+    border-radius: 3px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    line-height: 1;
+    padding: 0;
+}
+.btn-ctrl:hover {
+    background: #444;
+}
+
+.ctrl-val {
+    font-size: 12px;
+    font-weight: bold;
+    min-width: 16px;
+    text-align: center;
+    color: var(--color-accent);
+}
+
+.btn-gear {
+    background: none;
+    border: none;
+    color: #aaa;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px;
+    margin-left: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s;
+}
+.btn-gear:hover {
+    transform: rotate(45deg);
+    color: #fff;
+}
+
+.local-popover {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: #1e1e1e;
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 15px;
+    z-index: 100;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    min-width: 280px;
+    margin-top: 5px;
+}
+
+.popover-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    font-size: 14px;
+    color: #ccc;
+    gap: 8px;
+}
+.popover-row:last-child {
+    margin-bottom: 0;
+}
+
+.pop-input {
+    width: 50px;
+    background: #111;
+    border: 1px solid #555;
+    color: white;
+    padding: 4px;
+    border-radius: 4px;
+    text-align: center;
+    font-size: 14px;
 }

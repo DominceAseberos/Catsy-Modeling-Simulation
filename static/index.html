@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Catsy Coffee Simulation</title>
-    <link rel="stylesheet" href="/static/style.css?v=4">
+    <link rel="stylesheet" href="/static/style.css?v=5">
 </head>
 <body>
     <header class="header">
@@ -34,30 +34,14 @@
         <div class="modal">
             <div class="modal__header">
                 <h2 class="modal__title">Simulation Configuration</h2>
-                <button id="btn-close-settings" class="button button--secondary">Close</button>
+                <div>
+                    <button class="button button--action" onclick="resetConfigToDefault()" style="margin-right: 10px;">Set to Default</button>
+                    <button id="btn-close-settings" class="button button--secondary">Close</button>
+                </div>
             </div>
             
             <div class="config-grid">
-                <!-- Staff & Space -->
-                <div class="config-section">
-                    <h3 class="config-section__title">Staff & Space</h3>
-                    <div class="config-item">
-                        <label>Cashiers <span class="info-icon" data-tooltip="Number of staff taking orders at the front desk (Max 10)">ⓘ</span></label>
-                        <input type="number" class="config-item__input" id="cfg-cashiers" value="1" min="1" max="10">
-                    </div>
-                    <div class="config-item">
-                        <label>Baristas <span class="info-icon" data-tooltip="Number of staff preparing drinks (Max 15)">ⓘ</span></label>
-                        <input type="number" class="config-item__input" id="cfg-baristas" value="2" min="1" max="15">
-                    </div>
-                    <div class="config-item">
-                        <label>Tables <span class="info-icon" data-tooltip="Total seating capacity for walk-in dine-in customers">ⓘ</span></label>
-                        <input type="number" class="config-item__input" id="cfg-tables" value="5" min="1">
-                    </div>
-                    <div class="config-item">
-                        <label>Res. Tables <span class="info-icon" data-tooltip="Dedicated tables reserved for pre-order VIP customers">ⓘ</span></label>
-                        <input type="number" class="config-item__input" id="cfg-res-tables" value="2" min="0">
-                    </div>
-                </div>
+                <!-- Staff & Space moved to inline area controls -->
 
                 <!-- Customer Traffic -->
                 <div class="config-section">
@@ -110,30 +94,7 @@
                     </div>
                 </div>
 
-                <!-- Process Timings -->
-                <div class="config-section">
-                    <h3 class="config-section__title">Process Timings (min-max s)</h3>
-                    <div class="config-item" style="justify-content: flex-start; gap: 5px;">
-                        <label style="flex:1;">Menu Browsing <span class="info-icon" data-tooltip="Time spent looking at the menu before ordering (min-max)">ⓘ</span></label>
-                        <input type="number" class="config-item__input" id="cfg-decide-min" value="10"> -
-                        <input type="number" class="config-item__input" id="cfg-decide-max" value="60">
-                    </div>
-                    <div class="config-item" style="justify-content: flex-start; gap: 5px;">
-                        <label style="flex:1;">Payment Time <span class="info-icon" data-tooltip="Time spent paying the cashier (min-max)">ⓘ</span></label>
-                        <input type="number" class="config-item__input" id="cfg-pay-min" value="2"> -
-                        <input type="number" class="config-item__input" id="cfg-pay-max" value="10">
-                    </div>
-                    <div class="config-item" style="justify-content: flex-start; gap: 5px;">
-                        <label style="flex:1;">Drink Prep Time <span class="info-icon" data-tooltip="Time for the barista to make the drink (min-max)">ⓘ</span></label>
-                        <input type="number" class="config-item__input" id="cfg-prep-min" value="60"> -
-                        <input type="number" class="config-item__input" id="cfg-prep-max" value="180">
-                    </div>
-                    <div class="config-item" style="justify-content: flex-start; gap: 5px;">
-                        <label style="flex:1;">Dine-In Time <span class="info-icon" data-tooltip="Time a customer spends eating at a table (min-max)">ⓘ</span></label>
-                        <input type="number" class="config-item__input" id="cfg-dwell-min" value="900"> -
-                        <input type="number" class="config-item__input" id="cfg-dwell-max" value="3600">
-                    </div>
-                </div>
+                <!-- Process Timings moved to inline area controls -->
 
                 <!-- Legend / Glossary -->
                 <div class="config-section" style="grid-column: 1 / -1;">
@@ -141,11 +102,11 @@
                     <div style="display: flex; flex-wrap: wrap; gap: 1rem; color: #ccc; font-size: 0.85rem;">
                         <div style="flex: 1; min-width: 250px;">
                             <div style="margin-bottom: 8px; color: var(--color-accent); font-weight: bold;">Customer States</div>
-                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="font-size: 1.2rem;">💧</span> Level 1 Frustration (Waiting)</div>
-                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="font-size: 1.2rem;">😤</span> Level 2 Frustration (Annoyed)</div>
-                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="font-size: 1.2rem;">💢</span> Level 3 Frustration (Angry)</div>
-                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="font-size: 1.2rem;">🛑</span> Left because line was too long (Walkout)</div>
-                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="font-size: 1.2rem;">🚶</span> Walked out tired of waiting in queue</div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="font-size: 1.2rem;">⌚</span> Level 1 Frustration (Waiting)</div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="font-size: 1.2rem;">😠</span> Level 2 Frustration (Annoyed)</div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="font-size: 1.2rem;">😡</span> Level 3 Frustration (Angry)</div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="font-size: 1.2rem;">🙅</span> Left because line was too long (Walkout)</div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="font-size: 1.2rem;">🏃</span> Walked out tired of waiting in queue</div>
                         </div>
                         <div style="flex: 1; min-width: 250px;">
                             <div style="margin-bottom: 8px; color: var(--color-accent); font-weight: bold;">Entities & Events</div>
@@ -225,7 +186,26 @@
                 </div>
 
                 <div class="area">
-                    <h4 class="area__title">Cashier (Order & Pay) <span class="info-icon" data-tooltip="Where customers queue to place their orders and pay. High queues here increase frustration and walkouts.">ⓘ</span></h4>
+                    <div class="area__header-row">
+                        <h4 class="area__title">Cashier (Order & Pay) <span class="info-icon" data-tooltip="Where customers queue to place their orders and pay. High queues here increase frustration and walkouts.">ⓘ</span></h4>
+                        <div class="area__controls">
+                            <button class="btn-ctrl" onclick="updateConfigVal('cfg-cashiers', -1, 1, 10)">-</button>
+                            <span class="ctrl-val" id="disp-cashiers">1</span>
+                            <button class="btn-ctrl" onclick="updateConfigVal('cfg-cashiers', 1, 1, 10)">+</button>
+                            <button class="btn-gear" data-popover="popover-cashier">⚙️</button>
+                        </div>
+                        <div id="popover-cashier" class="local-popover" style="display: none;">
+                            <input type="hidden" id="cfg-cashiers" value="1">
+                            <div class="popover-row">
+                                <label>Menu Browsing (s)</label>
+                                <div><span style="font-weight:bold; color:#fff; margin-right:4px;">Min</span><input type="number" id="cfg-decide-min" value="10" class="pop-input" onchange="triggerConfigUpdate()"> - <span style="font-weight:bold; color:#fff; margin-left:4px; margin-right:4px;">Max</span><input type="number" id="cfg-decide-max" value="60" class="pop-input" onchange="triggerConfigUpdate()"></div>
+                            </div>
+                            <div class="popover-row">
+                                <label>Payment Time (s)</label>
+                                <div><span style="font-weight:bold; color:#fff; margin-right:4px;">Min</span><input type="number" id="cfg-pay-min" value="2" class="pop-input" onchange="triggerConfigUpdate()"> - <span style="font-weight:bold; color:#fff; margin-left:4px; margin-right:4px;">Max</span><input type="number" id="cfg-pay-max" value="10" class="pop-input" onchange="triggerConfigUpdate()"></div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="area__content">
                         <div id="cashier-desk-container" class="desk desk--vertical" style="width: 100%; justify-content: center; gap: 2px;">
                         </div>
@@ -233,7 +213,22 @@
                 </div>
 
                 <div class="area">
-                    <h4 class="area__title">Barista (Prep) <span class="info-icon info-icon--right" data-tooltip="Where staff prepare orders. Drinks take varying amounts of time depending on complexity.">ⓘ</span></h4>
+                    <div class="area__header-row">
+                        <h4 class="area__title">Barista (Prep) <span class="info-icon info-icon--right" data-tooltip="Where staff prepare orders. Drinks take varying amounts of time depending on complexity.">ⓘ</span></h4>
+                        <div class="area__controls">
+                            <button class="btn-ctrl" onclick="updateConfigVal('cfg-baristas', -1, 1, 15)">-</button>
+                            <span class="ctrl-val" id="disp-baristas">2</span>
+                            <button class="btn-ctrl" onclick="updateConfigVal('cfg-baristas', 1, 1, 15)">+</button>
+                            <button class="btn-gear" data-popover="popover-barista">⚙️</button>
+                        </div>
+                        <div id="popover-barista" class="local-popover" style="display: none;">
+                            <input type="hidden" id="cfg-baristas" value="2">
+                            <div class="popover-row">
+                                <label>Drink Prep Time (s)</label>
+                                <div><span style="font-weight:bold; color:#fff; margin-right:4px;">Min</span><input type="number" id="cfg-prep-min" value="60" class="pop-input" onchange="triggerConfigUpdate()"> - <span style="font-weight:bold; color:#fff; margin-left:4px; margin-right:4px;">Max</span><input type="number" id="cfg-prep-max" value="180" class="pop-input" onchange="triggerConfigUpdate()"></div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="area__content">
                         <div class="desk desk--horizontal">
                             <div id="barista-staff-container" style="display: flex; flex-wrap: wrap; gap: 10px;">
@@ -261,7 +256,30 @@
                 </div>
 
                 <div class="area" style="flex: 2;">
-                    <h4 class="area__title">Dine-In Area <span class="info-icon" data-tooltip="Where dine-in customers consume their orders. Reserved tables are held for specific customers. Full tables = walkouts.">ⓘ</span></h4>
+                    <div class="area__header-row">
+                        <h4 class="area__title">Dine-In Area <span class="info-icon" data-tooltip="Where dine-in customers consume their orders. Reserved tables are held for specific customers. Full tables = walkouts.">ⓘ</span></h4>
+                        <div class="area__controls">
+                            <span style="font-size: 10px; color: #aaa;">Regular:</span>
+                            <button class="btn-ctrl" onclick="updateConfigVal('cfg-tables', -1, 1, 50)">-</button>
+                            <span class="ctrl-val" id="disp-tables">5</span>
+                            <button class="btn-ctrl" onclick="updateConfigVal('cfg-tables', 1, 1, 50)">+</button>
+                            
+                            <span style="font-size: 10px; color: #aaa; margin-left: 8px;">Reserved:</span>
+                            <button class="btn-ctrl" onclick="updateConfigVal('cfg-res-tables', -1, 0, 20)">-</button>
+                            <span class="ctrl-val" id="disp-res-tables">2</span>
+                            <button class="btn-ctrl" onclick="updateConfigVal('cfg-res-tables', 1, 0, 20)">+</button>
+                            
+                            <button class="btn-gear" data-popover="popover-dinein">⚙️</button>
+                        </div>
+                        <div id="popover-dinein" class="local-popover" style="display: none;">
+                            <input type="hidden" id="cfg-tables" value="5">
+                            <input type="hidden" id="cfg-res-tables" value="2">
+                            <div class="popover-row">
+                                <label>Dine-In Time (s)</label>
+                                <div><span style="font-weight:bold; color:#fff; margin-right:4px;">Min</span><input type="number" id="cfg-dwell-min" value="900" class="pop-input" onchange="triggerConfigUpdate()"> - <span style="font-weight:bold; color:#fff; margin-left:4px; margin-right:4px;">Max</span><input type="number" id="cfg-dwell-max" value="3600" class="pop-input" onchange="triggerConfigUpdate()"></div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="area__content">
                         <div id="tables" class="tables-container">
                             <!-- Dynamically populated -->
@@ -305,6 +323,6 @@
         </div>
     </div>
 
-    <script src="/static/app.js?v=14"></script>
+    <script type="module" src="/static/app.js?v=20"></script>
 </body>
 </html>

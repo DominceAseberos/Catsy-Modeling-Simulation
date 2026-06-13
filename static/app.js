@@ -1,17 +1,35 @@
-let socket = null;
-let customers = new Map();
-let customerTableMap = new Map(); // Maps customer ID to table element ID
-let customerFrustrationMap = new Map(); // Maps customer ID to frustration level (0-3)
+import { configState } from './js/core/ConfigState.js';
+import { SettingsModal } from './js/components/SettingsModal.js';
+import { AreaPopovers } from './js/components/AreaPopovers.js';
+import { dashboardStats } from './js/core/DashboardStats.js';
+import { simulationClient } from './js/core/SimulationClient.js';
+import { analyticsModal } from './js/ui/AnalyticsModal.js';
 
-// Stats
-let totalCustomers = 0;
-let servedCustomers = 0;
-let lostCustomers = 0;
-let totalDineIn = 0;
-let totalTakeout = 0;
-let cashierQueueLen = 0;
-let waitingAreaLen = 0;
-let pickupAreaLen = 0;
+// Initialize UI Components
+const settingsModal = new SettingsModal();
+const areaPopovers = new AreaPopovers();
+
+// Listen to configuration updates to save and restart
+configState.addEventListener('updated', (e) => {
+    localStorage.setItem('catsySimConfig', JSON.stringify(e.detail));
+    if (simulationClient.socket) {
+        startSimulation();
+    }
+});
+
+function loadConfigFromStorage() {
+    const saved = localStorage.getItem('catsySimConfig');
+    if (!saved) return;
+    try {
+        const config = JSON.parse(saved);
+        for (const [id, value] of Object.entries(config)) {
+            // ConfigState grabs initial state, no manual DOM update here
+        }
+    } catch (e) {
+        console.error('Failed to parse saved config', e);
+    }
+}
+configState.refreshFromDOM();
 
 // DOM Elements
 const btnStart = document.getElementById('btn-start');
@@ -19,36 +37,12 @@ const btnStop = document.getElementById('btn-stop');
 const statusDot = document.getElementById('connection-status');
 const statusText = document.getElementById('status-text');
 const floatingLayer = document.getElementById('floating-layer');
-const scenarioSelect = document.getElementById('cfg-scenario');
-const arrivalInput = document.getElementById('cfg-arrival');
 
-// Settings Modal
-const btnSettings = document.getElementById('btn-settings');
-const btnCloseSettings = document.getElementById('btn-close-settings');
-const settingsScrim = document.getElementById('settings-scrim');
-
-btnSettings.addEventListener('click', () => {
-    settingsScrim.classList.add('scrim--active');
-});
-
-btnCloseSettings.addEventListener('click', () => {
-    settingsScrim.classList.remove('scrim--active');
-});
-
-// Scenario logic
-scenarioSelect.addEventListener('change', (e) => {
-    if (e.target.value !== 'custom') {
-        arrivalInput.value = e.target.value;
-    }
-});
-
-arrivalInput.addEventListener('input', () => {
-    scenarioSelect.value = 'custom';
-});
+let customers = new Map();
+let customerTableMap = new Map(); // Maps customer ID to table element ID
+let customerFrustrationMap = new Map(); // Maps customer ID to frustration level (0-3)
 
 let cashierQueueLens = []; // Array of lengths per cashier
-
-// Position Maps (to offset people in queues)
 const cashierOffsets = new Map();
 const customerCashierMap = new Map();
 const waitingAreaOffsets = new Map();
@@ -61,172 +55,51 @@ let baristaTimers = {};
 
 function enforceBounds() {
     const cashiersEl = document.getElementById('cfg-cashiers');
-    if (parseInt(cashiersEl.value) > 10) cashiersEl.value = 10;
-    if (parseInt(cashiersEl.value) < 1) cashiersEl.value = 1;
+    if (cashiersEl && parseInt(cashiersEl.value) > 10) cashiersEl.value = 10;
+    if (cashiersEl && parseInt(cashiersEl.value) < 1) cashiersEl.value = 1;
     
     const baristasEl = document.getElementById('cfg-baristas');
-    if (parseInt(baristasEl.value) > 15) baristasEl.value = 15;
-    if (parseInt(baristasEl.value) < 1) baristasEl.value = 1;
+    if (baristasEl && parseInt(baristasEl.value) > 15) baristasEl.value = 15;
+    if (baristasEl && parseInt(baristasEl.value) < 1) baristasEl.value = 1;
 }
 
-btnStart.addEventListener('click', () => {
-    if (socket) return;
-    
+function startSimulation() {
     enforceBounds();
-    // Get dynamic config
-    const cashiers = document.getElementById('cfg-cashiers').value;
-    const baristas = document.getElementById('cfg-baristas').value;
-    const tables = document.getElementById('cfg-tables').value;
-    const resTables = document.getElementById('cfg-res-tables').value;
-    const arrival = document.getElementById('cfg-arrival').value;
+    simulationClient.connect();
+}
+
+window.addEventListener('sim:connected', () => {
+    if (statusDot) statusDot.className = 'dot green';
+    if (statusText) statusText.innerText = 'Connected';
     
-    const decideMin = document.getElementById('cfg-decide-min').value;
-    const decideMax = document.getElementById('cfg-decide-max').value;
-    const payMin = document.getElementById('cfg-pay-min').value;
-    const payMax = document.getElementById('cfg-pay-max').value;
-    const prepMin = document.getElementById('cfg-prep-min').value;
-    const prepMax = document.getElementById('cfg-prep-max').value;
-    const dwellMin = document.getElementById('cfg-dwell-min').value;
-    const dwellMax = document.getElementById('cfg-dwell-max').value;
-    const duration = document.getElementById('cfg-duration').value;
-    const balkProb = document.getElementById('cfg-balk-prob').value / 100.0;
-    const renegeProb = document.getElementById('cfg-renege-prob').value / 100.0;
-    const maxStrikes = document.getElementById('cfg-max-strikes').value;
-    const takeoutProb = (document.getElementById('cfg-takeout-prob')?.value || 50) / 100.0;
-    const resProb = (document.getElementById('cfg-res-prob')?.value || 20) / 100.0;
-    const warmupTime = document.getElementById('cfg-warmup')?.value || 0;
-
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-    const wsUrl = `${wsProtocol}${window.location.host}/ws?cashiers=${cashiers}&baristas=${baristas}&tables=${tables}&resTables=${resTables}&arrival=${arrival}&decideMin=${decideMin}&decideMax=${decideMax}&payMin=${payMin}&payMax=${payMax}&prepMin=${prepMin}&prepMax=${prepMax}&dwellMin=${dwellMin}&dwellMax=${dwellMax}&duration=${duration}&balkProb=${balkProb}&renegeProb=${renegeProb}&maxStrikes=${maxStrikes}&takeoutProb=${takeoutProb}&resProb=${resProb}&warmupTime=${warmupTime}`;
-    socket = new WebSocket(wsUrl);
-
-    socket.onopen = () => {
-        statusDot.className = 'dot green';
-        statusText.innerText = 'Connected';
-        
-        const warmupIndicator = document.getElementById('warmup-indicator');
+    const warmupTime = configState.getConfig().warmupTime || 0;
+    const warmupIndicator = document.getElementById('warmup-indicator');
+    if (warmupIndicator) {
         if (warmupTime > 0) {
             warmupIndicator.style.display = 'inline-block';
         } else {
             warmupIndicator.style.display = 'none';
         }
-        resetSimulation();
-    };
-
-    socket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        handleEvent(data);
-    };
-
-    socket.onclose = () => {
-        statusDot.className = 'dot red';
-        statusText.innerText = 'Disconnected';
-        socket = null;
-    };
+    }
+    resetSimulation();
 });
+
+window.addEventListener('sim:disconnected', () => {
+    if (statusDot) statusDot.className = 'status-indicator__dot status-indicator__dot--disconnected';
+    if (statusText) statusText.innerText = 'Disconnected';
+});
+
+window.addEventListener('sim:event', (e) => {
+    handleEvent(e.detail);
+});
+
+btnStart.addEventListener('click', startSimulation);
 
 btnStop.addEventListener('click', () => {
-    if (socket) {
-        socket.close();
-    }
+    simulationClient.disconnect();
 });
 
-// Analytics Modal Logic
-const btnAnalyze = document.getElementById('btn-analyze');
-const modal = document.getElementById('analytics-modal');
-const btnCloseModal = document.getElementById('btn-close-modal');
 
-if (btnAnalyze) {
-    btnAnalyze.addEventListener('click', async () => {
-        enforceBounds();
-        modal.classList.add('scrim--active');
-        const loadingDiv = document.getElementById('analytics-loading');
-        loadingDiv.style.display = 'block';
-        loadingDiv.innerHTML = '<i id="analyzing-text" style="color:#f1c40f;">Analyzing.</i><div id="analyzing-timer" style="margin-top: 15px; font-size: 13px; color: #aaa; font-family: monospace;">Time elapsed: 0.0s</div>';
-        document.getElementById('analytics-content').style.display = 'none';
-        
-        // Animate the dots so user knows it's working
-        let dotCount = 1;
-        const animInterval = setInterval(() => {
-            dotCount = (dotCount % 3) + 1;
-            const dots = '.'.repeat(dotCount);
-            const el = document.getElementById('analyzing-text');
-            if (el) el.innerText = 'Analyzing' + dots;
-        }, 500);
-        
-        const startTime = Date.now();
-        const timerInterval = setInterval(() => {
-            const timerEl = document.getElementById('analyzing-timer');
-            if (timerEl) {
-                const elapsed = (Date.now() - startTime) / 1000;
-                timerEl.innerText = `Time elapsed: ${elapsed.toFixed(1)}s`;
-            }
-        }, 100);
-        
-        const replicationsCount = parseInt(document.getElementById('cfg-replications')?.value || 10);
-        const shiftHours = parseFloat(document.getElementById('cfg-shift-hours')?.value || 2);
-        const durationSeconds = Math.floor(shiftHours * 3600);
-        
-        document.getElementById('analytics-subtitle').innerText = `Averaged over ${replicationsCount} independent simulated days (${shiftHours} hours each, minus warm-up).`;
-        
-        const payload = {
-            cashiers: parseInt(document.getElementById('cfg-cashiers').value),
-            baristas: parseInt(document.getElementById('cfg-baristas').value),
-            tables: parseInt(document.getElementById('cfg-tables').value),
-            resTables: parseInt(document.getElementById('cfg-res-tables').value),
-            arrival: parseFloat(document.getElementById('cfg-arrival').value),
-            decideMin: parseFloat(document.getElementById('cfg-decide-min').value),
-            decideMax: parseFloat(document.getElementById('cfg-decide-max').value),
-            payMin: parseFloat(document.getElementById('cfg-pay-min').value),
-            payMax: parseFloat(document.getElementById('cfg-pay-max').value),
-            prepMin: parseFloat(document.getElementById('cfg-prep-min').value),
-            prepMax: parseFloat(document.getElementById('cfg-prep-max').value),
-            dwellMin: parseFloat(document.getElementById('cfg-dwell-min').value),
-            dwellMax: parseFloat(document.getElementById('cfg-dwell-max').value),
-            balkProb: parseFloat(document.getElementById('cfg-balk-prob').value) / 100.0,
-            renegeProb: parseFloat(document.getElementById('cfg-renege-prob').value) / 100.0,
-            maxStrikes: parseInt(document.getElementById('cfg-max-strikes').value),
-            takeoutProb: (parseFloat(document.getElementById('cfg-takeout-prob')?.value || 50)) / 100.0,
-            resProb: (parseFloat(document.getElementById('cfg-res-prob')?.value || 20)) / 100.0,
-            warmupTime: parseFloat(document.getElementById('cfg-warmup')?.value || 0),
-            replications: replicationsCount,
-            duration: durationSeconds
-        };
-
-        try {
-            const res = await fetch('/api/analyze', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            clearInterval(animInterval);
-            clearInterval(timerInterval);
-            
-            if (!res.ok) {
-                throw new Error("Server returned " + res.status);
-            }
-            
-            const data = await res.json();
-            
-            loadingDiv.style.display = 'none';
-            document.getElementById('analytics-content').style.display = 'block';
-            
-            document.getElementById('res-wait').innerText = data.avg_wait_time.toFixed(1) + 's';
-            document.getElementById('res-cycle').innerText = (data.avg_cycle_time / 60).toFixed(1) + ' mins';
-            document.getElementById('res-throughput').innerText = data.throughput_per_hour.toFixed(0) + ' / hr';
-        } catch (e) {
-            clearInterval(animInterval);
-            clearInterval(timerInterval);
-            loadingDiv.innerHTML = '<span style="color:#e74c3c">Error: Analysis timed out or failed. Check configuration.</span>';
-        }
-    });
-}
-
-if (btnCloseModal) {
-    btnCloseModal.addEventListener('click', () => {
-        modal.classList.remove('scrim--active');
-    });
-}
 
 function resetSimulation() {
     floatingLayer.innerHTML = '';
@@ -276,14 +149,14 @@ function resetSimulation() {
         }
         
         for (let i = 0; i < cashiersCount; i++) {
-            const timerHtml = showTimer ? `<div id="timer-cashier-${i}" style="font-size: 9px; color: #f39c12; font-family: monospace; line-height: 1; margin-bottom: 3px;">Idle</div>` : `<div id="timer-cashier-${i}" style="display:none;"></div>`;
+            const timerHtml = showTimer ? `<div id="timer-cashier-${i}" class="modern-timer idle" style="position: absolute; top: -5px; right: 15px; z-index: 5;">Idle</div>` : `<div id="timer-cashier-${i}" style="display:none;"></div>`;
             
             cashierContainer.innerHTML += `
-                <div style="display: flex; flex-direction: row; align-items: center; width: 100%; flex: 1; min-height: 0; justify-content: flex-end; gap: 5px;">
+                <div style="position: relative; display: flex; flex-direction: row; align-items: center; width: 100%; flex: 1; min-height: 0; justify-content: flex-end; gap: 5px;">
+                    ${timerHtml}
                     <div id="cashier-queue-${i}" class="people-container" style="flex:1; height:100%; border: 1px dashed rgba(255,255,255,0.1);"></div>
                     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
                         <div id="working-anim-cashier-${i}" class="working-anim">💵</div>
-                        ${timerHtml}
                         <div id="cashier-staff-${i}" class="staff cashier-staff" style="width: ${staffSize}px; height: ${staffSize}px; font-size: ${fontSize}px; min-height: ${staffSize}px; background-image: url('/static/cashier.png'); background-size: cover; background-position: center; background-color: transparent; border: none; color: transparent;">C${i+1}</div>
                     </div>
                 </div>
@@ -300,7 +173,7 @@ function resetSimulation() {
             baristaContainer.innerHTML += `
                 <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
                     <div id="working-anim-${i}" class="working-anim">☕</div>
-                    <div id="timer-barista-${i}" style="font-size: 10px; color: #f39c12; font-family: monospace; height: 12px;">Idle</div>
+                    <div id="timer-barista-${i}" class="modern-timer idle" style="margin-bottom: 2px;">Idle</div>
                     <div id="barista-staff-${i}" class="staff barista-staff" style="background-image: url('/static/barista.png'); background-size: cover; background-position: center; background-color: transparent; border: none; color: transparent;">B${i+1}</div>
                     <div id="status-barista-${i}" style="font-size: 10px; color: #aaa; text-align: center; height: 12px; white-space: nowrap;">Idle</div>
                 </div>
@@ -363,14 +236,20 @@ function getTargetCoords(elementId, offsetIndex = 0) {
     let x = rect.left + rect.width / 2 - 12.5;
     let y = rect.top + rect.height / 2 - 12.5;
     
-    if (elementId === 'entrance') {
+    if (elementId === 'entrance' || elementId === 'waiting-area' || elementId === 'pickup-area') {
         // Use a "Jittered Grid" approach: assign them a unique grid cell to prevent overlap, 
-        // but add a random offset within that cell so it looks messy and organic.
-        const availableWidth = Math.max(30, rect.width - 20);
-        const availableHeight = Math.max(30, rect.height - 20);
+        // but add a deterministic random offset within that cell so it looks messy and organic.
+        const cellSize = 38; // 38px cells to ensure no overlap for 28px width elements
+        const availableWidth = Math.max(cellSize, rect.width - 10);
         
-        const maxCols = Math.max(1, Math.floor(availableWidth / 30));
-        const maxRows = Math.max(1, Math.floor(availableHeight / 30));
+        let startYOffset = 10;
+        if (elementId === 'waiting-area' || elementId === 'pickup-area') {
+            startYOffset = 25; // Leave room for the text label at the top
+        }
+        const availableHeight = Math.max(cellSize, rect.height - startYOffset - 10);
+        
+        const maxCols = Math.max(1, Math.floor(availableWidth / cellSize));
+        const maxRows = Math.max(1, Math.floor(availableHeight / cellSize));
         const maxSlots = maxCols * maxRows;
         
         // Find their base cell
@@ -378,15 +257,16 @@ function getTargetCoords(elementId, offsetIndex = 0) {
         const col = slot % maxCols;
         const row = Math.floor(slot / maxCols);
         
-        const baseX = rect.left + 10 + (col * 30);
-        const baseY = rect.top + 10 + (row * 30);
+        const baseX = rect.left + 5 + (col * cellSize) + (cellSize / 2);
+        const baseY = rect.top + startYOffset + (row * cellSize) + (cellSize / 2);
         
-        // Add a deterministic jitter (-10px to +10px) inside their cell
-        const jitterX = (Math.abs(Math.sin(offsetIndex * 12.9898) * 43758.5453) % 1) * 20 - 10;
-        const jitterY = (Math.abs(Math.cos(offsetIndex * 78.233) * 43758.5453) % 1) * 20 - 10;
+        // Add a deterministic jitter (-5px to +5px) inside their cell
+        const jitterX = (Math.abs(Math.sin(offsetIndex * 12.9898) * 43758.5453) % 1) * 10 - 5;
+        const jitterY = (Math.abs(Math.cos(offsetIndex * 78.233) * 43758.5453) % 1) * 10 - 5;
         
-        x = baseX + jitterX;
-        y = baseY + jitterY;
+        // Centering the customer sprite (which is 25x25) in the cell
+        x = baseX - 12.5 + jitterX;
+        y = baseY - 12.5 + jitterY;
         return { x, y };
     }
     
@@ -396,7 +276,7 @@ function getTargetCoords(elementId, offsetIndex = 0) {
         
         if (offsetIndex < 0) {
             // Customer is actively ordering/paying
-            x = rect.right - 10;
+            x = rect.right - 40; // Push further left so customer does not overlap cashier
             y = rect.top + rect.height / 2 - 12.5; // vertically center the active person
         } else {
             // Calculate how many people fit in this specific container dynamically
@@ -411,15 +291,6 @@ function getTargetCoords(elementId, offsetIndex = 0) {
             x -= (col * 30);
             y += (row * 30); // Wrap downwards
         }
-        return { x, y };
-    }
-    // If it's the waiting area, wrap around using dynamic grid logic
-    else if (elementId === 'waiting-area') {
-        const maxCols = Math.max(1, Math.floor((rect.width - 20) / 30));
-        const row = Math.floor(offsetIndex / maxCols);
-        const col = offsetIndex % maxCols;
-        x = rect.left + 10 + (col * 30);
-        y = rect.top + 10 + (row * 30);
         return { x, y };
     }
     // Otherwise standard positive offset
@@ -526,7 +397,10 @@ function updateFrustrationVisuals(id) {
     if (level === 0) {
         el.classList.remove('customer--frustrated');
         const badge = el.querySelector('.customer__badge');
-        if (badge) badge.innerText = '';
+        if (badge) {
+            badge.innerText = '';
+            badge.style.display = '';
+        }
         return;
     }
     
@@ -534,12 +408,13 @@ function updateFrustrationVisuals(id) {
     
     const badge = el.querySelector('.customer__badge');
     if (badge) {
+        badge.style.display = '';
         if (level === 1) {
-            badge.innerText = '💧';
+            badge.innerText = '⌚';
         } else if (level === 2) {
-            badge.innerText = '😤';
+            badge.innerText = '😠';
         } else {
-            badge.innerText = '💢';
+            badge.innerText = '😡';
         }
     }
 }
@@ -593,7 +468,7 @@ function handleEvent(data) {
             if (bStartEl) {
                 bStartEl.classList.add('customer--frustrated');
                 const badge = bStartEl.querySelector('.customer__badge');
-                if (badge) badge.innerText = '🛑';
+                if (badge) badge.innerText = '🙅';
             }
             break;
             
@@ -664,7 +539,7 @@ function handleEvent(data) {
                 renegeEl.classList.add('customer--frustrated');
                 const badge = renegeEl.querySelector('.customer__badge');
                 if (badge) {
-                    badge.innerText = '💢';
+                    badge.innerText = '🏃';
                     badge.animate([
                         { transform: 'scale(1)' },
                         { transform: 'scale(1.5)' },
@@ -707,6 +582,15 @@ function handleEvent(data) {
             
             moveCustomer(id, `cashier-queue-${decIdx}`, -1);
             
+            const decEl = customers.get(id);
+            if (decEl) {
+                const badge = decEl.querySelector('.customer__badge');
+                if (badge) {
+                    badge.innerText = '💭';
+                    badge.style.display = 'flex';
+                }
+            }
+            
             // Start the cashier countdown timer!
             if (data.duration) {
                 if (cashierTimers[decIdx]) clearInterval(cashierTimers[decIdx].interval);
@@ -720,7 +604,7 @@ function handleEvent(data) {
                 const timerEl = document.getElementById(`timer-cashier-${decIdx}`);
                 if (timerEl) {
                     timerEl.innerText = '0.0s';
-                    timerEl.style.color = '#e94f37';
+                    timerEl.classList.remove('idle');
                 }
                 
                 const interval = setInterval(() => {
@@ -757,6 +641,15 @@ function handleEvent(data) {
                 const cAnim = document.getElementById(`working-anim-cashier-${payingCIdx}`);
                 if (cAnim) cAnim.style.display = 'block';
             }
+            
+            const payEl = customers.get(id);
+            if (payEl) {
+                const badge = payEl.querySelector('.customer__badge');
+                if (badge) {
+                    badge.innerText = '💳';
+                    badge.style.display = 'flex';
+                }
+            }
             break;
             
         case 'waiting_pickup':
@@ -766,6 +659,7 @@ function handleEvent(data) {
             pickupAreaLen++;
             pickupAreaOffsets.set(id, pickupAreaLen - 1);
             moveCustomer(id, 'pickup-area', pickupAreaLen - 1);
+            updateFrustrationVisuals(id);
             
             // Customer left the cashier, reset the cashier timer
             const leftCIdxTakeout = customerCashierMap.get(id);
@@ -774,7 +668,7 @@ function handleEvent(data) {
                 const timerEl = document.getElementById(`timer-cashier-${leftCIdxTakeout}`);
                 if (timerEl) {
                     timerEl.innerText = 'Idle';
-                    timerEl.style.color = '#f39c12';
+                    timerEl.classList.add('idle');
                 }
                 const cAnim = document.getElementById(`working-anim-cashier-${leftCIdxTakeout}`);
                 if (cAnim) cAnim.style.display = 'none';
@@ -789,6 +683,7 @@ function handleEvent(data) {
             waitingAreaLen++;
             waitingAreaOffsets.set(id, waitingAreaLen - 1);
             moveCustomer(id, 'waiting-area', waitingAreaLen - 1);
+            updateFrustrationVisuals(id);
             
             // Customer left the cashier, reset the cashier timer
             const leftCIdx = customerCashierMap.get(id);
@@ -797,7 +692,7 @@ function handleEvent(data) {
                 const timerEl = document.getElementById(`timer-cashier-${leftCIdx}`);
                 if (timerEl) {
                     timerEl.innerText = 'Idle';
-                    timerEl.style.color = '#f39c12';
+                    timerEl.classList.add('idle');
                 }
                 const cAnim = document.getElementById(`working-anim-cashier-${leftCIdx}`);
                 if (cAnim) cAnim.style.display = 'none';
@@ -861,7 +756,7 @@ function handleEvent(data) {
                 const timerEl = document.getElementById(`timer-barista-${bIdx}`);
                 if (timerEl) {
                     timerEl.innerText = '0.0s';
-                    timerEl.style.color = '#e94f37';
+                    timerEl.classList.remove('idle');
                 }
                 
                 const interval = setInterval(() => {
@@ -893,7 +788,7 @@ function handleEvent(data) {
                 const timerEl = document.getElementById(`timer-barista-${finishedBIdx}`);
                 if (timerEl) {
                     timerEl.innerText = 'Idle';
-                    timerEl.style.color = '#f39c12';
+                    timerEl.classList.add('idle');
                 }
                 const finishedBStatus = document.getElementById(`status-barista-${finishedBIdx}`);
                 if (finishedBStatus) {

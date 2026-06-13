@@ -29,8 +29,8 @@ class CafeSimulation:
         for i in range(config["barista_count"]):
             self.baristas.put(i)
             
-        self.regular_tables = simpy.Resource(env, capacity=config["table_count"])
-        self.reservation_tables = simpy.Resource(env, capacity=config.get("res_table_count", 0))
+        self.regular_tables = simpy.Resource(env, capacity=max(1, config.get("table_count", 1)))
+        self.reservation_tables = simpy.Resource(env, capacity=max(1, config.get("res_table_count", 0)))
         
         self.customer_count = 0
         
@@ -116,11 +116,11 @@ class CafeSimulation:
         # WALK-IN FLOW (Regular Takeout or Dine-in)
         # 1. Cashier Queue
         
-        # Find shortest queue
+        # Find shortest queue (including the person currently ordering)
         shortest_queue_idx = 0
-        min_len = len(self.cashiers[0].queue)
+        min_len = self.cashiers[0].count + len(self.cashiers[0].queue)
         for i in range(1, len(self.cashiers)):
-            q_len = len(self.cashiers[i].queue)
+            q_len = self.cashiers[i].count + len(self.cashiers[i].queue)
             if q_len < min_len:
                 min_len = q_len
                 shortest_queue_idx = i
@@ -247,24 +247,15 @@ class CafeSimulation:
             # Immediate leave since takeout
             self.emit("leave", name)
             
+            if self.env.now > self.config.get("warmup_time", 0):
+                self.cycle_times.append(self.env.now - arrival_time)
+                self.completed_customers += 1
+            
         else:
             # Dine-In Flow (Regular Walk-in): 2. Find a Table (or wait in Waiting Area)
             self.emit("waiting_table", name, {"is_reservation": False})
             
-            with self.regular_tables.request() as req:
-                if self.event_queue is None:
-                    yield req
-                else:
-                    while True:
-                        results = yield req | self.env.timeout(60.0)
-                        if req in results:
-                            break
-                        self.emit("prep_waiting_frustration", name)
-                    
-                # Customer is now seated, but waiting for their order
-                self.emit("seated_waiting_order", name, {"is_reservation": is_reservation})
-                
-                # 3. Barista prepares the order (Customer is at the table during this time)
+            def make_drink():
                 barista_req = self.baristas.get()
                 if self.event_queue is None:
                     barista_idx = yield barista_req
@@ -295,6 +286,25 @@ class CafeSimulation:
                         
                 self.baristas.put(barista_idx) # Free the barista
                 
+            # Start making the drink concurrently
+            drink_proc = self.env.process(make_drink())
+            
+            with self.regular_tables.request() as req:
+                if self.event_queue is None:
+                    yield req
+                else:
+                    while True:
+                        results = yield req | self.env.timeout(60.0)
+                        if req in results:
+                            break
+                        self.emit("prep_waiting_frustration", name)
+                    
+                # Customer is now seated, but waiting for their order
+                self.emit("seated_waiting_order", name, {"is_reservation": is_reservation})
+                
+                # Wait for the drink to be ready if it isn't already
+                yield drink_proc
+                
                 # 4. Order is served, Customer eats/drinks
                 self.emit("served", name)
                 yield self.env.timeout(random.uniform(self.config["dwell_min"], self.config["dwell_max"]))
@@ -321,6 +331,11 @@ class CafeSimulation:
         yield self.env.timeout(self.config["warmup_time"])
         self.emit("warmup_complete", "System")
 
+    def tick_timer(self):
+        while True:
+            self.emit("tick", "System")
+            yield self.env.timeout(0.1)
+
 def start_simulation(event_queue, config, speed_factor=1.0):
     """
     Runs the SimPy RealtimeEnvironment in the current thread.
@@ -329,6 +344,7 @@ def start_simulation(event_queue, config, speed_factor=1.0):
     env = simpy.rt.RealtimeEnvironment(factor=speed_factor, strict=False)
     cafe = CafeSimulation(env, event_queue, config)
     env.process(cafe.run())
+    env.process(cafe.tick_timer())
     
     if config.get("warmup_time", 0) > 0:
         env.process(cafe.warmup_timer())
