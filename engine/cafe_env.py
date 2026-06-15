@@ -45,6 +45,12 @@ class CafeEnvironment:
 
     def run(self):
         # Spawning loop
+        # Force the first customer to arrive quickly (1-3 seconds sim time) so the UI doesn't look dead
+        yield self.env.timeout(random.uniform(1.0, 3.0))
+        self.customer_count += 1
+        name = f"Cust-{self.customer_count}"
+        self.env.process(customer_process(self.env, self, name, self.config))
+        
         while True:
             # Deterministic/Exponential arrival
             arrival_interval = random.expovariate(1.0 / self.config["avg_arrival_time"])

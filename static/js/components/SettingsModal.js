@@ -1,5 +1,6 @@
 // static/js/components/SettingsModal.js
 import { configState } from '../core/ConfigState.js';
+import { simulationClient } from '../core/SimulationClient.js';
 
 export class SettingsModal {
     constructor() {
@@ -17,6 +18,7 @@ export class SettingsModal {
         if (this.btnSettings && this.settingsScrim) {
             this.btnSettings.addEventListener('click', () => {
                 this.settingsScrim.classList.add('scrim--active');
+                simulationClient.pause();
             });
         }
 
@@ -24,6 +26,7 @@ export class SettingsModal {
         if (this.btnCloseSettings && this.settingsScrim) {
             this.btnCloseSettings.addEventListener('click', () => {
                 this.settingsScrim.classList.remove('scrim--active');
+                simulationClient.resume();
                 // Persist/Update config state when modal closes
                 configState.refreshFromDOM();
             });

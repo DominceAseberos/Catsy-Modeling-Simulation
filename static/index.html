@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Catsy Coffee Simulation</title>
     <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/static/style.css?v=5">
 </head>
 <body>
@@ -20,8 +21,9 @@
                 <input type="number" id="cfg-replications" value="10" min="1" max="100" style="width: 50px; background: #121212; border: 1px solid #555; color: white; padding: 2px; border-radius: 3px;">
                 <button id="btn-analyze" class="button button--action" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">Run Analytics</button>
             </div>
-            <button id="btn-start" class="button">Connect & Start</button>
-            <button id="btn-stop" class="button button--secondary">Disconnect</button>
+            <button id="btn-start" class="button">▶ Play</button>
+            <button id="btn-stop" class="button button--secondary" disabled>⏹ Stop</button>
+            <button id="btn-restart" class="button button--secondary" disabled>🔄 Restart</button>
             
             <div class="status-indicator">
                 <span id="connection-status" class="status-indicator__dot status-indicator__dot--disconnected"></span>
@@ -190,9 +192,9 @@
                     <div class="area__header-row">
                         <h4 class="area__title">Cashier (Order & Pay) <span class="info-icon" data-tooltip="Where customers queue to place their orders and pay. High queues here increase frustration and walkouts.">ⓘ</span></h4>
                         <div class="area__controls">
-                            <button class="btn-ctrl" onclick="updateConfigVal('cfg-cashiers', -1, 1, 10)">-</button>
+                            <button class="btn-ctrl" onclick="updateConfigVal('cfg-cashiers', -1, 1, 5)">-</button>
                             <span class="ctrl-val" id="disp-cashiers">1</span>
-                            <button class="btn-ctrl" onclick="updateConfigVal('cfg-cashiers', 1, 1, 10)">+</button>
+                            <button class="btn-ctrl" onclick="updateConfigVal('cfg-cashiers', 1, 1, 5)">+</button>
                             <button class="btn-gear" data-popover="popover-cashier">⚙️</button>
                         </div>
                         <div id="popover-cashier" class="local-popover" style="display: none;">
@@ -217,9 +219,9 @@
                     <div class="area__header-row">
                         <h4 class="area__title">Barista (Prep) <span class="info-icon info-icon--right" data-tooltip="Where staff prepare orders. Drinks take varying amounts of time depending on complexity.">ⓘ</span></h4>
                         <div class="area__controls">
-                            <button class="btn-ctrl" onclick="updateConfigVal('cfg-baristas', -1, 1, 15)">-</button>
+                            <button class="btn-ctrl" onclick="updateConfigVal('cfg-baristas', -1, 1, 8)">-</button>
                             <span class="ctrl-val" id="disp-baristas">2</span>
-                            <button class="btn-ctrl" onclick="updateConfigVal('cfg-baristas', 1, 1, 15)">+</button>
+                            <button class="btn-ctrl" onclick="updateConfigVal('cfg-baristas', 1, 1, 8)">+</button>
                             <button class="btn-gear" data-popover="popover-barista">⚙️</button>
                         </div>
                         <div id="popover-barista" class="local-popover" style="display: none;">

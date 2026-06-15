@@ -20,6 +20,10 @@ def _get_prep_time_and_emit_pace(cafe, config):
     return prep_time
 
 def handle_reservation_flow(env, cafe, name, config, arrival_time):
+    # VIPs bypass the queue and instantly check-in at the first cashier desk
+    cafe.emit("vip_checkin", name, {"cashier_index": 0})
+    yield env.timeout(2.0) # 2 seconds to allow the ticket animation to finish
+    
     cafe.emit("waiting_table", name, {"is_reservation": True})
     with cafe.reservation_tables.request() as req:
         if cafe.event_queue is None:
@@ -85,6 +89,8 @@ def handle_takeout_flow(env, cafe, name, config, arrival_time):
 def handle_dine_in_flow(env, cafe, name, config, arrival_time):
     cafe.emit("waiting_table", name, {"is_reservation": False})
     
+    drink_ready_event = env.event()
+    
     def make_drink():
         barista_req = cafe.baristas.get()
         if cafe.event_queue is None:
@@ -115,6 +121,8 @@ def handle_dine_in_flow(env, cafe, name, config, arrival_time):
                     cafe.emit("prep_waiting_frustration", name)
                 
         cafe.baristas.put(barista_idx) # Free the barista
+        cafe.emit("finish_prep", name) # Tell UI the barista is done
+        drink_ready_event.succeed()
         
     # Start making the drink concurrently
     env.process(make_drink())
@@ -130,7 +138,11 @@ def handle_dine_in_flow(env, cafe, name, config, arrival_time):
                 cafe.emit("prep_waiting_frustration", name)
                 
         cafe.emit("seated_waiting_order", name, {"is_reservation": False})
-        yield env.timeout(2.0) # Time to sit and receive drink
+        
+        # Wait for the barista to actually finish making the drink
+        yield drink_ready_event
+        
+        yield env.timeout(2.0) # Time to receive drink
         cafe.emit("served", name)
         
         yield env.timeout(random.uniform(config["dwell_min"], config["dwell_max"]))
@@ -147,7 +159,20 @@ def customer_process(env, cafe, name, config):
     # Spend a moment walking into the shop
     yield env.timeout(random.uniform(1.0, 2.0))
     
-    is_takeout = random.random() < config.get("takeout_prob", 0.5)
+    base_takeout_prob = config.get("takeout_prob", 0.5)
+    
+    if cafe.regular_tables.capacity > 0:
+        available_tables = cafe.regular_tables.capacity - cafe.regular_tables.count
+        if available_tables > 0:
+            # Tables are available: Encourage dine-in (lower takeout prob)
+            effective_takeout_prob = max(0.1, base_takeout_prob * 0.5)
+        else:
+            # Tables are full: Encourage takeout (higher takeout prob)
+            effective_takeout_prob = min(0.95, base_takeout_prob * 1.5)
+    else:
+        effective_takeout_prob = base_takeout_prob
+        
+    is_takeout = random.random() < effective_takeout_prob
     is_reservation = False
     if not is_takeout and config.get("res_table_count", 0) > 0:
         is_reservation = random.random() < config.get("res_prob", 0.0)

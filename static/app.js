@@ -6,6 +6,7 @@ import { simulationClient } from './js/core/SimulationClient.js';
 import { analyticsModal } from './js/ui/AnalyticsModal.js';
 import { tableRenderer } from './js/ui/TableRenderer.js';
 import { staffRenderer } from './js/ui/StaffRenderer.js';
+import { customerRenderer } from './js/ui/CustomerRenderer.js';
 
 // Initialize UI Components
 const settingsModal = new SettingsModal();
@@ -33,14 +34,13 @@ function loadConfigFromStorage() {
 }
 configState.refreshFromDOM();
 
-// DOM Elements
 const btnStart = document.getElementById('btn-start');
 const btnStop = document.getElementById('btn-stop');
+const btnRestart = document.getElementById('btn-restart');
 const statusDot = document.getElementById('connection-status');
 const statusText = document.getElementById('status-text');
 const floatingLayer = document.getElementById('floating-layer');
 
-let customers = new Map();
 let customerTableMap = new Map(); // Maps customer ID to table element ID
 let customerFrustrationMap = new Map(); // Maps customer ID to frustration level (0-3)
 
@@ -80,6 +80,13 @@ function startSimulation() {
 window.addEventListener('sim:connected', () => {
     if (statusDot) statusDot.className = 'dot green';
     if (statusText) statusText.innerText = 'Connected';
+    if (btnStart) {
+        btnStart.disabled = true;
+        btnStart.innerText = '▶ Playing...';
+        btnStart.classList.add('playing');
+    }
+    if (btnStop) btnStop.disabled = false;
+    if (btnRestart) btnRestart.disabled = false;
     
     const warmupTime = configState.getConfig().warmupTime || 0;
     const warmupIndicator = document.getElementById('warmup-indicator');
@@ -96,6 +103,26 @@ window.addEventListener('sim:connected', () => {
 window.addEventListener('sim:disconnected', () => {
     if (statusDot) statusDot.className = 'status-indicator__dot status-indicator__dot--disconnected';
     if (statusText) statusText.innerText = 'Disconnected';
+    if (btnStart) {
+        btnStart.disabled = false;
+        btnStart.innerText = '▶ Play';
+        btnStart.classList.remove('playing');
+    }
+    if (btnStop) btnStop.disabled = true;
+    if (btnRestart) btnRestart.disabled = true;
+    
+    // Stop all visual timers immediately
+    for (const key in cashierTimers) {
+        if (cashierTimers[key] && cashierTimers[key].interval) {
+            clearInterval(cashierTimers[key].interval);
+        }
+    }
+    for (const key in baristaTimers) {
+        if (baristaTimers[key] && baristaTimers[key].interval) {
+            clearInterval(baristaTimers[key].interval);
+        }
+    }
+    staffRenderer.clearAllTimers();
 });
 
 window.addEventListener('sim:event', (e) => {
@@ -106,7 +133,20 @@ btnStart.addEventListener('click', startSimulation);
 
 btnStop.addEventListener('click', () => {
     simulationClient.disconnect();
+    btnStart.disabled = false;
+    btnStop.disabled = true;
+    if (btnRestart) btnRestart.disabled = true;
 });
+
+if (btnRestart) {
+    btnRestart.addEventListener('click', () => {
+        simulationClient.disconnect();
+        // Slight delay to ensure the disconnect processes completely before reconnecting
+        setTimeout(() => {
+            startSimulation();
+        }, 100);
+    });
+}
 
 
 
@@ -117,8 +157,23 @@ function resetSimulation() {
     waitingAreaOffsets.clear();
     pickupAreaOffsets.clear();
     customerBaristaMap.clear();
+    // Clear all manual intervals
+    for (const key in cashierTimers) {
+        if (cashierTimers[key] && cashierTimers[key].interval) {
+            clearInterval(cashierTimers[key].interval);
+        }
+    }
+    cashierTimers = {};
+    
+    for (const key in baristaTimers) {
+        if (baristaTimers[key] && baristaTimers[key].interval) {
+            clearInterval(baristaTimers[key].interval);
+        }
+    }
+    baristaTimers = {};
+
     staffRenderer.clearAllTimers();
-    customers.clear();
+    customerRenderer.clearAll();
     customerTableMap.clear();
     customerFrustrationMap.clear();
     totalCustomers = 0;
@@ -151,7 +206,6 @@ function resetSimulation() {
 
 
 
-import { customerRenderer } from './js/ui/CustomerRenderer.js';
 
 function updateStats(time) {
     document.getElementById('sim-time').innerText = time.toFixed(1) + 's';
@@ -214,24 +268,24 @@ function handleEvent(data) {
             break;
             
         case 'balking_start':
-customerRenderer.incrementFrustration(id, 4);
+            customerRenderer.incrementFrustration(id, 4);
             break;
             
         case 'balk_leave':
             lostCustomers++;
-customerRenderer.removeCustomer(id);
+            customerRenderer.removeCustomer(id);
             break;
             
         case 'frustrated_waiting':
-customerRenderer.incrementFrustration(id, 1);
+            customerRenderer.incrementFrustration(id, 1);
             break;
             
         case 'patience_warning':
-customerRenderer.incrementFrustration(id, 2);
+            customerRenderer.incrementFrustration(id, 2);
             break;
             
         case 'prep_waiting_frustration':
-customerRenderer.incrementFrustration(id, 3);
+            customerRenderer.incrementFrustration(id, 3);
             break;
             
         case 'renege_leave':
@@ -250,7 +304,7 @@ customerRenderer.incrementFrustration(id, 3);
                     if (currentOffset !== undefined && currentOffset > leavingOffset) {
                         let newOffset = currentOffset - 1;
                         cashierOffsets.set(custId, newOffset);
-                        moveCustomer(custId, `cashier-queue-${cIdxToLeave}`, newOffset);
+                        customerRenderer.moveCustomer(custId, `cashier-queue-${cIdxToLeave}`, newOffset);
                     }
                 }
             }
@@ -260,7 +314,7 @@ customerRenderer.incrementFrustration(id, 3);
             customerCashierMap.delete(id);
             
             // Animate them storming out in frustration
-            const renegeEl = customers.get(id);
+            const renegeEl = customerRenderer.customers.get(id);
             if (renegeEl) {
                 renegeEl.classList.add('customer--frustrated');
                 const badge = renegeEl.querySelector('.customer__badge');
@@ -287,28 +341,38 @@ customerRenderer.incrementFrustration(id, 3);
                     renegeEl.style.opacity = '0';
                     setTimeout(() => {
                         if (renegeEl.parentNode) renegeEl.parentNode.removeChild(renegeEl);
-                        customers.delete(id);
+                        customerRenderer.customers.delete(id);
                     }, 1200);
                 }, 2000);
             }
             break;
             
+        case 'vip_checkin':
+            const vipCashierIdx = data.cashier_index !== undefined ? data.cashier_index : 0;
+            customerRenderer.moveCustomer(id, `vip-checkin-${vipCashierIdx}`);
+            customerRenderer.markAsVIP(id);
+            // Small timeout to let the movement start before triggering the animation
+            setTimeout(() => {
+                customerRenderer.triggerVIPAnimation(id);
+            }, 300);
+            break;
+
         case 'queue_cashier':
             const cIdx = data.cashier_index;
             customerCashierMap.set(id, cIdx);
             
             cashierQueueLens[cIdx]++;
             cashierOffsets.set(id, cashierQueueLens[cIdx] - 1);
-            moveCustomer(id, `cashier-queue-${cIdx}`, cashierQueueLens[cIdx] - 1);
+            customerRenderer.moveCustomer(id, `cashier-queue-${cIdx}`, cashierQueueLens[cIdx] - 1);
             break;
             
         case 'start_deciding':
             const decIdx = data.cashier_index;
             cashierQueueLens[decIdx] = Math.max(0, cashierQueueLens[decIdx] - 1);
             
-            moveCustomer(id, `cashier-queue-${decIdx}`, -1);
+            customerRenderer.moveCustomer(id, `cashier-queue-${decIdx}`, -1);
             
-            const decEl = customers.get(id);
+            const decEl = customerRenderer.customers.get(id);
             if (decEl) {
                 const badge = decEl.querySelector('.customer__badge');
                 if (badge) {
@@ -334,6 +398,8 @@ customerRenderer.incrementFrustration(id, 3);
                 }
                 
                 const interval = setInterval(() => {
+                    if (simulationClient && simulationClient.isPaused) return;
+                    
                     elapsed += simTickSec;
                     if (elapsed >= totalDuration) {
                         elapsed = totalDuration;
@@ -354,7 +420,7 @@ customerRenderer.incrementFrustration(id, 3);
                     if (currentOffset !== undefined && currentOffset > 0) {
                         let newOffset = currentOffset - 1;
                         cashierOffsets.set(custId, newOffset);
-                        moveCustomer(custId, `cashier-queue-${decIdx}`, newOffset);
+                        customerRenderer.moveCustomer(custId, `cashier-queue-${decIdx}`, newOffset);
                     }
                 }
             }
@@ -368,7 +434,7 @@ customerRenderer.incrementFrustration(id, 3);
                 if (cAnim) cAnim.style.display = 'block';
             }
             
-            const payEl = customers.get(id);
+            const payEl = customerRenderer.customers.get(id);
             if (payEl) {
                 const badge = payEl.querySelector('.customer__badge');
                 if (badge) {
@@ -384,8 +450,8 @@ customerRenderer.incrementFrustration(id, 3);
             // Go to waiting/pickup area if tables are full, or if waiting for takeout
             pickupAreaLen++;
             pickupAreaOffsets.set(id, pickupAreaLen - 1);
-            moveCustomer(id, 'pickup-area', pickupAreaLen - 1);
-            updateFrustrationVisuals(id);
+            customerRenderer.moveCustomer(id, 'pickup-area', pickupAreaLen - 1);
+            customerRenderer.updateFrustrationVisuals(id);
             
             // Customer left the cashier, reset the cashier timer
             const leftCIdxTakeout = customerCashierMap.get(id);
@@ -408,8 +474,8 @@ customerRenderer.incrementFrustration(id, 3);
             // Go to waiting/pickup area if tables are full, or if waiting for takeout
             waitingAreaLen++;
             waitingAreaOffsets.set(id, waitingAreaLen - 1);
-            moveCustomer(id, 'waiting-area', waitingAreaLen - 1);
-            updateFrustrationVisuals(id);
+            customerRenderer.moveCustomer(id, 'waiting-area', waitingAreaLen - 1);
+            customerRenderer.updateFrustrationVisuals(id);
             
             // Customer left the cashier, reset the cashier timer
             const leftCIdx = customerCashierMap.get(id);
@@ -446,8 +512,8 @@ customerRenderer.incrementFrustration(id, 3);
             
             customerTableMap.set(id, tableId);
             
-            moveCustomer(id, tableId);
-            updateTableStatus(tableId, "Waiting for Order...", "waiting");
+            customerRenderer.moveCustomer(id, tableId);
+            tableRenderer.updateStatus(tableId, "Waiting for Order...", "waiting");
             // clear inline styles if it's a reservation table, to avoid sticking to 'Reserved' color when text is updated
             if (data.is_reservation) {
                 document.getElementById(`status-${tableId}`).style.color = '';
@@ -486,6 +552,8 @@ customerRenderer.incrementFrustration(id, 3);
                 }
                 
                 const interval = setInterval(() => {
+                    if (simulationClient && simulationClient.isPaused) return;
+                    
                     elapsed += simTickSec;
                     if (elapsed >= totalDuration) {
                         elapsed = totalDuration;
@@ -500,12 +568,12 @@ customerRenderer.incrementFrustration(id, 3);
             break;
             
         case 'served':
-            customerFrustrationMap.set(id, 0);
-            updateFrustrationVisuals(id);
+            customerRenderer.frustrationMap.set(id, 0);
+            customerRenderer.updateFrustrationVisuals(id);
             // Order arrived! Time to eat.
             const tId = customerTableMap.get(id);
             if (tId) {
-                updateTableStatus(tId, "Eating/Drinking", "eating");
+                tableRenderer.updateStatus(tId, "Eating/Drinking", "eating");
             }
             
             const finishedBIdx = customerBaristaMap.get(id);
@@ -531,13 +599,13 @@ customerRenderer.incrementFrustration(id, 3);
             
         case 'leave':
             servedCustomers++;
-            const el = customers.get(id);
+            const el = customerRenderer.customers.get(id);
             if (el) {
                 el.style.transform += ' translate(500px, 0)';
                 el.style.opacity = '0';
                 setTimeout(() => {
                     if (el.parentNode) el.parentNode.removeChild(el);
-                    customers.delete(id);
+                    customerRenderer.customers.delete(id);
                 }, 800);
             }
             
@@ -554,12 +622,12 @@ customerRenderer.incrementFrustration(id, 3);
             const leftTableId = customerTableMap.get(id);
             if (leftTableId) {
                 if (leftTableId.startsWith('res-table-')) {
-                    updateTableStatus(leftTableId, "Reserved", "");
+                    tableRenderer.updateStatus(leftTableId, "Reserved", "");
                     document.getElementById(`status-${leftTableId}`).style.color = '#f39c12';
                     document.getElementById(`status-${leftTableId}`).style.fontWeight = 'bold';
                     availableResTables.push(leftTableId);
                 } else {
-                    updateTableStatus(leftTableId, "", "");
+                    tableRenderer.updateStatus(leftTableId, "", "");
                     availableTables.push(leftTableId);
                 }
                 customerTableMap.delete(id);

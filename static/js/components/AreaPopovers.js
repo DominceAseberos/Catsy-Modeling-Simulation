@@ -1,5 +1,6 @@
 // static/js/components/AreaPopovers.js
 import { configState } from '../core/ConfigState.js';
+import { simulationClient } from '../core/SimulationClient.js';
 
 export class AreaPopovers {
     constructor() {
@@ -24,6 +25,9 @@ export class AreaPopovers {
                 
                 if (!isVisible) {
                     pop.style.display = 'block';
+                    simulationClient.pause();
+                } else {
+                    simulationClient.resume();
                 }
             });
         });
@@ -31,7 +35,14 @@ export class AreaPopovers {
         // Close popovers when clicking outside
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.local-popover') && !e.target.closest('.btn-gear')) {
-                document.querySelectorAll('.local-popover').forEach(p => p.style.display = 'none');
+                let closedAny = false;
+                document.querySelectorAll('.local-popover').forEach(p => {
+                    if (p.style.display === 'block') {
+                        p.style.display = 'none';
+                        closedAny = true;
+                    }
+                });
+                if (closedAny) simulationClient.resume();
             }
         });
     }

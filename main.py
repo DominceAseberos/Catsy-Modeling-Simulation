@@ -145,9 +145,8 @@ async def websocket_endpoint(websocket: WebSocket):
                 await websocket.send_text(json.dumps(event))
             except queue.Empty:
                 await asyncio.sleep(0.01) # Yield to event loop
-    except WebSocketDisconnect:
-        print("Client disconnected")
-
+    except Exception as e:
+        print(f"Client disconnected or connection error: {e}")
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=True)
+    uvicorn.run("main:app", host="127.0.0.1", port=8000)

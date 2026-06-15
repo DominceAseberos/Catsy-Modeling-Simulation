@@ -24,7 +24,7 @@ export class TableRenderer {
             container.innerHTML += `
                 <div class="table table--reserved" id="res-table-${i}">
                     <div class="table__badge">[R]</div>
-                    <div class="table__status" id="status-res-table-${i}">Reserved</div>
+                    <div class="table__status" id="status-res-table-${i}"></div>
                 </div>
             `;
             this.availableResTables.push(`res-table-${i}`);
@@ -44,14 +44,29 @@ export class TableRenderer {
      */
     updateStatus(tableId, status, type) {
         const statusEl = document.getElementById(`status-${tableId}`);
+        const tableEl = document.getElementById(tableId);
+        
+        let icon = '';
+        if (type === 'waiting') icon = '<i class="fa-solid fa-hourglass-half"></i>';
+        else if (type === 'eating') icon = '<i class="fa-solid fa-mug-hot"></i>';
+
         if (statusEl) {
-            statusEl.innerText = status;
+            statusEl.innerHTML = icon;
+            statusEl.style.backgroundColor = 'transparent';
             if (type === 'waiting') {
-                statusEl.style.color = 'var(--color-error)';
+                statusEl.style.color = '#e94f37'; // Customer red
             } else if (type === 'eating') {
-                statusEl.style.color = 'var(--color-success)';
+                statusEl.style.color = '#4caf50'; // Success green
             } else {
-                statusEl.style.color = 'var(--color-text-secondary)';
+                statusEl.style.color = 'transparent';
+            }
+        }
+        
+        if (tableEl) {
+            if (type === 'waiting' || type === 'eating') {
+                tableEl.classList.add('table--occupied');
+            } else {
+                tableEl.classList.remove('table--occupied');
             }
         }
     }

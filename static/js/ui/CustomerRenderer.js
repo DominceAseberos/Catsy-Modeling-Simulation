@@ -20,12 +20,32 @@ export class CustomerRenderer {
      * Calculates deterministic coordinates to prevent overlapping
      */
     getTargetCoords(elementId, offsetIndex = 0) {
+        if (elementId.startsWith('vip-checkin-')) {
+            const cashierIdx = elementId.split('-')[2];
+            const deskId = `cashier-queue-${cashierIdx}`;
+            const targetEl = document.getElementById(deskId);
+            if (targetEl) {
+                const rect = targetEl.getBoundingClientRect();
+                const absoluteTop = rect.top + window.scrollY;
+                const absoluteRight = rect.left + window.scrollX + rect.width;
+                const x = absoluteRight - 40; 
+                const y = absoluteTop + rect.height / 2 + 20; // Offset vertically from the person paying
+                return { x, y };
+            }
+            return { x: 0, y: 0 };
+        }
+
         const el = document.getElementById(elementId);
         if (!el) return { x: 0, y: 0 };
         const rect = el.getBoundingClientRect();
         
-        let x = rect.left + rect.width / 2 - 12.5;
-        let y = rect.top + rect.height / 2 - 12.5;
+        const absoluteLeft = rect.left + window.scrollX;
+        const absoluteTop = rect.top + window.scrollY;
+
+        let x = absoluteLeft + rect.width / 2 - 12.5;
+        let y = absoluteTop + rect.height / 2 - 12.5;
+        
+        const absoluteRight = absoluteLeft + rect.width;
         
         if (elementId === 'entrance' || elementId === 'waiting-area' || elementId === 'pickup-area') {
             const cellSize = 38;
@@ -45,8 +65,8 @@ export class CustomerRenderer {
             const col = slot % maxCols;
             const row = Math.floor(slot / maxCols);
             
-            const baseX = rect.left + 5 + (col * cellSize) + (cellSize / 2);
-            const baseY = rect.top + startYOffset + (row * cellSize) + (cellSize / 2);
+            const baseX = absoluteLeft + 5 + (col * cellSize) + (cellSize / 2);
+            const baseY = absoluteTop + startYOffset + (row * cellSize) + (cellSize / 2);
             
             const jitterX = (Math.abs(Math.sin(offsetIndex * 12.9898) * 43758.5453) % 1) * 10 - 5;
             const jitterY = (Math.abs(Math.cos(offsetIndex * 78.233) * 43758.5453) % 1) * 10 - 5;
@@ -56,17 +76,19 @@ export class CustomerRenderer {
             return { x, y };
         }
         
+
+        
         if (elementId.startsWith('cashier-queue-')) {
-            let y = rect.top + 20; 
+            let y = absoluteTop + 20; 
             if (offsetIndex < 0) {
-                x = rect.right - 40; 
-                y = rect.top + rect.height / 2 - 12.5; 
+                x = absoluteRight - 40; 
+                y = absoluteTop + rect.height / 2 - 12.5; 
             } else {
                 const availableWidth = rect.width - 70;
                 const maxCols = Math.max(1, Math.floor(availableWidth / 30));
                 const col = offsetIndex % maxCols;
                 const row = Math.floor(offsetIndex / maxCols);
-                x = rect.right - 70; 
+                x = absoluteRight - 70; 
                 x -= (col * 30);
                 y += (row * 30); 
             }
@@ -114,6 +136,13 @@ export class CustomerRenderer {
         el.style.transform = `translate(${target.x}px, ${target.y}px) scale(1)`;
     }
 
+    markAsVIP(id) {
+        const el = this.customers.get(id);
+        if (el) {
+            el.classList.add('customer--vip');
+        }
+    }
+
     /**
      * Increments the frustration level of a customer.
      */
@@ -158,6 +187,30 @@ export class CustomerRenderer {
             else if (level === 2) badge.innerText = '😠';
             else if (level === 3) badge.innerText = '😡';
             else if (level >= 4) badge.innerText = '🙅'; // Balking/Reneging
+        }
+    }
+
+    triggerVIPAnimation(id) {
+        const el = this.customers.get(id);
+        if (!el) return;
+        
+        const badge = el.querySelector('.customer__badge');
+        if (badge) {
+            badge.innerText = '🎫';
+            badge.style.display = 'flex';
+            badge.classList.add('vip-float-anim');
+            
+            setTimeout(() => {
+                badge.classList.remove('vip-float-anim');
+                // Only clear it if they aren't frustrated
+                const level = this.frustrationMap.get(id) || 0;
+                if (level === 0) {
+                    badge.style.display = 'none';
+                    badge.innerText = '';
+                } else {
+                    this.updateFrustrationVisuals(id); // Restore frustration badge if needed
+                }
+            }, 1500); // 1.5s animation
         }
     }
 

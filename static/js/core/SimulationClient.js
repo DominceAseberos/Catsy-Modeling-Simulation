@@ -9,6 +9,27 @@ export class SimulationClient {
     constructor() {
         this.socket = null;
         this.reconnecting = false;
+        this.isPaused = false;
+        this.eventBuffer = [];
+    }
+
+    pause() {
+        this.isPaused = true;
+    }
+
+    resume() {
+        this.isPaused = false;
+        const flushBuffer = () => {
+            if (this.isPaused || this.eventBuffer.length === 0) return;
+            const batch = this.eventBuffer.splice(0, 50);
+            for (let data of batch) {
+                this.dispatchEvent('sim:event', data);
+            }
+            if (this.eventBuffer.length > 0) {
+                setTimeout(flushBuffer, 0);
+            }
+        };
+        flushBuffer();
     }
 
     /**
@@ -24,22 +45,36 @@ export class SimulationClient {
         
         this.socket = new WebSocket(wsUrl);
 
-        this.socket.onopen = () => {
-            this.dispatchEvent('sim:connected');
+        const currentSocket = this.socket;
+
+        currentSocket.onopen = () => {
+            if (this.socket === currentSocket) {
+                this.dispatchEvent('sim:connected');
+            }
         };
 
-        this.socket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            this.dispatchEvent('sim:event', data);
+        currentSocket.onmessage = (event) => {
+            if (this.socket === currentSocket) {
+                const data = JSON.parse(event.data);
+                if (this.isPaused) {
+                    this.eventBuffer.push(data);
+                } else {
+                    this.dispatchEvent('sim:event', data);
+                }
+            }
         };
 
-        this.socket.onclose = () => {
-            this.dispatchEvent('sim:disconnected');
-            this.socket = null;
+        currentSocket.onclose = () => {
+            if (this.socket === currentSocket) {
+                this.dispatchEvent('sim:disconnected');
+                this.socket = null;
+            }
         };
 
-        this.socket.onerror = (error) => {
-            console.error("Simulation WebSocket Error: ", error);
+        currentSocket.onerror = (error) => {
+            if (this.socket === currentSocket) {
+                console.error("Simulation WebSocket Error: ", error);
+            }
         };
     }
 
@@ -48,8 +83,10 @@ export class SimulationClient {
      */
     disconnect() {
         if (this.socket) {
-            this.socket.close();
-            this.socket = null;
+            const oldSocket = this.socket;
+            this.socket = null; // Instantly nullify so no new events process
+            oldSocket.close();
+            this.dispatchEvent('sim:disconnected');
         }
     }
 

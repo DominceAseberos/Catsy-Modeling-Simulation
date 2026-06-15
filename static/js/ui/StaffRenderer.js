@@ -24,7 +24,7 @@ export class StaffRenderer {
             const timerHtml = showTimer ? `<div id="timer-cashier-${i}" class="modern-timer idle" style="position: absolute; top: -5px; right: 15px; z-index: 5;">Idle</div>` : `<div id="timer-cashier-${i}" style="display:none;"></div>`;
             
             container.innerHTML += `
-                <div style="position: relative; display: flex; flex-direction: row; align-items: center; width: 100%; flex: 1; min-height: 0; justify-content: flex-end; gap: 5px;">
+                <div style="position: relative; display: flex; flex-direction: row; align-items: center; width: 100%; flex: 1; min-height: 80px; justify-content: flex-end; gap: 5px;">
                     ${timerHtml}
                     <div id="cashier-queue-${i}" class="people-container" style="flex:1; height:100%; border: 1px dashed rgba(255,255,255,0.1);"></div>
                     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
