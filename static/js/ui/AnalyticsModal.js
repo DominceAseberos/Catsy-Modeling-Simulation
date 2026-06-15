@@ -10,6 +10,11 @@ export class AnalyticsModal {
         this.modal = document.getElementById('analytics-modal');
         this.btnCloseModal = document.getElementById('btn-close-modal');
         
+        this.confirmationDiv = document.getElementById('analytics-confirmation');
+        this.configListDiv = document.getElementById('analytics-config-list');
+        this.btnRunConfirm = document.getElementById('btn-run-analysis-confirm');
+        this.title = document.getElementById('analytics-modal-title');
+        
         this.loadingDiv = document.getElementById('analytics-loading');
         this.contentDiv = document.getElementById('analytics-content');
         this.subtitle = document.getElementById('analytics-subtitle');
@@ -19,7 +24,11 @@ export class AnalyticsModal {
 
     bindEvents() {
         if (this.btnAnalyze && this.modal) {
-            this.btnAnalyze.addEventListener('click', () => this.runAnalysis());
+            this.btnAnalyze.addEventListener('click', () => this.showConfirmation());
+        }
+        
+        if (this.btnRunConfirm) {
+            this.btnRunConfirm.addEventListener('click', () => this.runAnalysis());
         }
 
         if (this.btnCloseModal && this.modal) {
@@ -28,10 +37,52 @@ export class AnalyticsModal {
             });
         }
     }
+    
+    showConfirmation() {
+        this.modal.classList.add('scrim--active');
+        if (this.title) this.title.innerText = "Batch Analytics Setup";
+        
+        // Ensure state is fresh from DOM before reading
+        configState.refreshFromDOM();
+        const payload = configState.getConfig();
+        
+        const shiftHours = payload.shiftHours || 2;
+        const reps = payload.replications || 10;
+        
+        if (this.subtitle) {
+            this.subtitle.innerText = `Preparing to run ${reps} simulated days (${shiftHours} hours each).`;
+        }
+        
+        if (this.configListDiv) {
+            // Fix: Fallback to defaults if somehow still undefined, and use correct ConfigState keys
+            const cashiers = payload.cashiers || 1;
+            const baristas = payload.baristas || 2;
+            const arrivalRate = payload.arrival || 45.0;
+            const decideMin = payload.decideMin || 10.0;
+            const decideMax = payload.decideMax || 60.0;
+            const baristaMin = payload.prepMin || 60.0;
+            const baristaMax = payload.prepMax || 180.0;
+            const balkThresh = payload.balkThreshold || 8;
+
+            this.configListDiv.innerHTML = `
+                <div><strong>Cashiers:</strong> ${cashiers}</div>
+                <div><strong>Baristas:</strong> ${baristas}</div>
+                <div><strong>Arrival Rate:</strong> 1 every ${arrivalRate.toFixed(1)}s</div>
+                <div><strong>Cashier Service:</strong> ${decideMin}s - ${decideMax}s</div>
+                <div><strong>Barista Service:</strong> ${baristaMin}s - ${baristaMax}s</div>
+                <div><strong>Balk Threshold:</strong> ${balkThresh} customers</div>
+            `;
+        }
+        
+        if (this.confirmationDiv) this.confirmationDiv.style.display = 'flex';
+        if (this.loadingDiv) this.loadingDiv.style.display = 'none';
+        if (this.contentDiv) this.contentDiv.style.display = 'none';
+    }
 
     async runAnalysis() {
-        this.modal.classList.add('scrim--active');
+        if (this.title) this.title.innerText = "Statistical Batch Results";
         
+        if (this.confirmationDiv) this.confirmationDiv.style.display = 'none';
         if (this.loadingDiv && this.contentDiv) {
             this.loadingDiv.style.display = 'block';
             this.loadingDiv.innerHTML = '<i id="analyzing-text" style="color:#f1c40f;">Analyzing.</i><div id="analyzing-timer" style="margin-top: 15px; font-size: 13px; color: #aaa; font-family: monospace;">Time elapsed: 0.0s</div>';
@@ -110,8 +161,6 @@ export class AnalyticsModal {
         setText('res-cycle', (data.avg_cycle_time / 60).toFixed(1) + ' mins');
         setText('res-lost-customers', (data.avg_lost_customers || 0).toFixed(1));
         setText('res-throughput', data.throughput_per_hour.toFixed(0) + ' / hr');
-        setText('res-revenue', '₱' + (data.revenue_generated || 0).toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
-        setText('res-revenue-lost', '₱' + (data.revenue_lost || 0).toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
         
         // Breakdown logic
         if (data.wait_breakdown && data.total_customers) {

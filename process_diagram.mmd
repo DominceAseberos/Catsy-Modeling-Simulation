@@ -1,0 +1,20 @@
+flowchart TD
+    A([Customer Arrives]) --> B{Is queue length > Balk Threshold?}
+    B -- Yes --> C([Customer Balks / Leaves])
+    B -- No --> D[Join Shortest Cashier Queue]
+    
+    D --> E{Patience Exceeded while waiting?}
+    E -- Yes --> F([Customer Reneges / Leaves])
+    E -- No --> G[Reach Cashier: Order & Pay]
+    
+    G --> H{Dine-in or Takeout?}
+    G -. Order Sent .-> K[[Barista Queue / Prepares Drink]]
+    
+    H -- Takeout --> I[Wait in Takeout Pickup Area]
+    H -- Dine-In --> J[Sit at Dine-in Table]
+    
+    I --> L[Order Completed & Served]
+    J --> L
+    K -. Drink Ready .-> L
+    
+    L --> M([Customer Departs])

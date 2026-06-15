@@ -320,13 +320,27 @@
 
     <!-- Analytics Modal -->
     <div id="analytics-modal" class="scrim">
-        <div class="modal" style="max-width: 500px;">
+        <div class="modal" style="max-width: 600px;">
             <div class="modal__header">
-                <h2 class="modal__title" style="color: var(--color-accent);">Statistical Batch Results</h2>
+                <h2 id="analytics-modal-title" class="modal__title" style="color: var(--color-accent);">Statistical Batch Analytics</h2>
             </div>
-            <p id="analytics-subtitle" style="color:var(--color-text-secondary); font-size:14px; margin-bottom:20px;">Averaged over independent simulated days (2 hours each, minus warm-up).</p>
+            <p id="analytics-subtitle" style="color:var(--color-text-secondary); font-size:14px; margin-bottom:20px;">Averaged over independent simulated days.</p>
             
-            <div id="analytics-loading" style="text-align:center; padding:20px; font-size:18px;">
+            <!-- Confirmation View -->
+            <div id="analytics-confirmation" style="display:none; gap:20px; margin-bottom: 20px;">
+                <div style="flex:1; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border: 1px solid #333;">
+                    <h3 style="margin-bottom:10px; font-size:14px; color:var(--color-accent);">Current Parameters</h3>
+                    <div id="analytics-config-list" style="font-size: 13px; line-height: 1.6;">
+                        <!-- Injected by JS -->
+                    </div>
+                </div>
+                <div style="flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+                    <p style="text-align:center; font-size:14px; margin-bottom:20px;">Execute a headless backend simulation utilizing these parameters to generate statistical performance predictions.</p>
+                    <button id="btn-run-analysis-confirm" class="button button--action" style="width:100%; padding: 15px; font-size:16px;">Run Analysis</button>
+                </div>
+            </div>
+
+            <div id="analytics-loading" style="text-align:center; padding:20px; font-size:18px; display:none;">
                 <i id="analyzing-text">Analyzing...</i>
             </div>
             
@@ -346,15 +360,6 @@
                 <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
                     <span>Throughput:</span>
                     <strong id="res-throughput" style="color:var(--color-success);">0/hr</strong>
-                </div>
-                <div style="border-top: 1px solid rgba(255,255,255,0.1); margin: 15px 0;"></div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                    <span>Estimated Revenue:</span>
-                    <strong id="res-revenue" style="color:var(--color-success); font-family: monospace;">₱0.00</strong>
-                </div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:25px;">
-                    <span>Potential Revenue Lost:</span>
-                    <strong id="res-revenue-lost" style="color:var(--color-error); font-family: monospace;">₱0.00</strong>
                 </div>
             </div>
             
