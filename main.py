@@ -7,7 +7,7 @@ import json
 import uvicorn
 
 from pydantic import BaseModel
-from simulation import start_simulation, run_batch_simulation
+from engine import start_simulation, run_batch_simulation
 
 app = FastAPI(title="Catsy Simulation")
 

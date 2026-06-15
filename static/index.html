@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Catsy Coffee Simulation</title>
+    <link rel="icon" href="data:,">
     <link rel="stylesheet" href="/static/style.css?v=5">
 </head>
 <body>
@@ -313,9 +314,22 @@
                     <span>Avg Cycle Time (Total):</span>
                     <strong id="res-cycle" style="color:var(--color-info);">0.0s</strong>
                 </div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:25px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
+                    <span>Avg Walkouts (Lost):</span>
+                    <strong id="res-lost-customers" style="color:var(--color-warning);">0</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
                     <span>Throughput:</span>
                     <strong id="res-throughput" style="color:var(--color-success);">0/hr</strong>
+                </div>
+                <div style="border-top: 1px solid rgba(255,255,255,0.1); margin: 15px 0;"></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                    <span>Estimated Revenue:</span>
+                    <strong id="res-revenue" style="color:var(--color-success); font-family: monospace;">₱0.00</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:25px;">
+                    <span>Potential Revenue Lost:</span>
+                    <strong id="res-revenue-lost" style="color:var(--color-error); font-family: monospace;">₱0.00</strong>
                 </div>
             </div>
             

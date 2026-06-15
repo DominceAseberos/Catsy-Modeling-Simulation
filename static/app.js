@@ -4,6 +4,8 @@ import { AreaPopovers } from './js/components/AreaPopovers.js';
 import { dashboardStats } from './js/core/DashboardStats.js';
 import { simulationClient } from './js/core/SimulationClient.js';
 import { analyticsModal } from './js/ui/AnalyticsModal.js';
+import { tableRenderer } from './js/ui/TableRenderer.js';
+import { staffRenderer } from './js/ui/StaffRenderer.js';
 
 // Initialize UI Components
 const settingsModal = new SettingsModal();
@@ -43,6 +45,13 @@ let customerTableMap = new Map(); // Maps customer ID to table element ID
 let customerFrustrationMap = new Map(); // Maps customer ID to frustration level (0-3)
 
 let cashierQueueLens = []; // Array of lengths per cashier
+let waitingAreaLen = 0;
+let pickupAreaLen = 0;
+let totalCustomers = 0;
+let servedCustomers = 0;
+let lostCustomers = 0;
+let totalDineIn = 0;
+let totalTakeout = 0;
 const cashierOffsets = new Map();
 const customerCashierMap = new Map();
 const waitingAreaOffsets = new Map();
@@ -108,14 +117,7 @@ function resetSimulation() {
     waitingAreaOffsets.clear();
     pickupAreaOffsets.clear();
     customerBaristaMap.clear();
-    for (let cIdx in cashierTimers) {
-        clearInterval(cashierTimers[cIdx].interval);
-    }
-    cashierTimers = {};
-    for (let bIdx in baristaTimers) {
-        clearInterval(baristaTimers[bIdx].interval);
-    }
-    baristaTimers = {};
+    staffRenderer.clearAllTimers();
     customers.clear();
     customerTableMap.clear();
     customerFrustrationMap.clear();
@@ -130,86 +132,26 @@ function resetSimulation() {
     
     // Dynamically draw cashiers
     const cashiersCount = parseInt(document.getElementById('cfg-cashiers').value);
-    const cashierContainer = document.getElementById('cashier-desk-container');
+    staffRenderer.drawCashiers(cashiersCount);
     
     // Initialize queue lengths array
     cashierQueueLens = Array(cashiersCount).fill(0);
-    
-    if (cashierContainer) {
-        cashierContainer.innerHTML = '';
-        
-        let staffSize = 40;
-        let fontSize = 14;
-        let showTimer = true;
-        
-        if (cashiersCount > 4) {
-            staffSize = 24;
-            fontSize = 9;
-            showTimer = false;
-        }
-        
-        for (let i = 0; i < cashiersCount; i++) {
-            const timerHtml = showTimer ? `<div id="timer-cashier-${i}" class="modern-timer idle" style="position: absolute; top: -5px; right: 15px; z-index: 5;">Idle</div>` : `<div id="timer-cashier-${i}" style="display:none;"></div>`;
-            
-            cashierContainer.innerHTML += `
-                <div style="position: relative; display: flex; flex-direction: row; align-items: center; width: 100%; flex: 1; min-height: 0; justify-content: flex-end; gap: 5px;">
-                    ${timerHtml}
-                    <div id="cashier-queue-${i}" class="people-container" style="flex:1; height:100%; border: 1px dashed rgba(255,255,255,0.1);"></div>
-                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
-                        <div id="working-anim-cashier-${i}" class="working-anim">💵</div>
-                        <div id="cashier-staff-${i}" class="staff cashier-staff" style="width: ${staffSize}px; height: ${staffSize}px; font-size: ${fontSize}px; min-height: ${staffSize}px; background-image: url('/static/cashier.png'); background-size: cover; background-position: center; background-color: transparent; border: none; color: transparent;">C${i+1}</div>
-                    </div>
-                </div>
-            `;
-        }
-    }
 
     // Dynamically draw baristas
     const baristasCount = parseInt(document.getElementById('cfg-baristas').value);
-    const baristaContainer = document.getElementById('barista-staff-container');
-    if (baristaContainer) {
-        baristaContainer.innerHTML = '';
-        for (let i = 0; i < baristasCount; i++) {
-            baristaContainer.innerHTML += `
-                <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
-                    <div id="working-anim-${i}" class="working-anim">☕</div>
-                    <div id="timer-barista-${i}" class="modern-timer idle" style="margin-bottom: 2px;">Idle</div>
-                    <div id="barista-staff-${i}" class="staff barista-staff" style="background-image: url('/static/barista.png'); background-size: cover; background-position: center; background-color: transparent; border: none; color: transparent;">B${i+1}</div>
-                    <div id="status-barista-${i}" style="font-size: 10px; color: #aaa; text-align: center; height: 12px; white-space: nowrap;">Idle</div>
-                </div>
-            `;
-        }
-    }
+    staffRenderer.drawBaristas(baristasCount);
     
     // Dynamically draw tables and initialize available tables list
     const tablesCount = parseInt(document.getElementById('cfg-tables').value);
     const resTablesCount = parseInt(document.getElementById('cfg-res-tables').value);
-    const tablesContainer = document.getElementById('tables');
-    availableTables = [];
-    availableResTables = [];
-    if (tablesContainer) {
-        tablesContainer.innerHTML = '';
-        for (let i = 1; i <= resTablesCount; i++) {
-            tablesContainer.innerHTML += `
-                <div class="table table--reserved" id="res-table-${i}">
-                    <div class="table__badge">[R]</div>
-                    <div class="table__status" id="status-res-table-${i}">Reserved</div>
-                </div>
-            `;
-            availableResTables.push(`res-table-${i}`);
-        }
-        for (let i = 1; i <= tablesCount; i++) {
-            tablesContainer.innerHTML += `
-                <div class="table" id="table-${i}">
-                    <div class="table__status" id="status-table-${i}"></div>
-                </div>
-            `;
-            availableTables.push(`table-${i}`);
-        }
-    }
+    tableRenderer.draw(tablesCount, resTablesCount);
+    availableTables = [...tableRenderer.availableTables];
+    availableResTables = [...tableRenderer.availableResTables];
 }
 
 
+
+import { customerRenderer } from './js/ui/CustomerRenderer.js';
 
 function updateStats(time) {
     document.getElementById('sim-time').innerText = time.toFixed(1) + 's';
@@ -226,198 +168,6 @@ function updateStats(time) {
     document.getElementById('waiting-area-len').innerText = waitingAreaLen + pickupAreaLen;
 }
 
-// Coordinate calculation helpers
-function getTargetCoords(elementId, offsetIndex = 0) {
-    const el = document.getElementById(elementId);
-    if (!el) return { x: 0, y: 0 };
-    const rect = el.getBoundingClientRect();
-    
-    // Base center point
-    let x = rect.left + rect.width / 2 - 12.5;
-    let y = rect.top + rect.height / 2 - 12.5;
-    
-    if (elementId === 'entrance' || elementId === 'waiting-area' || elementId === 'pickup-area') {
-        // Use a "Jittered Grid" approach: assign them a unique grid cell to prevent overlap, 
-        // but add a deterministic random offset within that cell so it looks messy and organic.
-        const cellSize = 38; // 38px cells to ensure no overlap for 28px width elements
-        const availableWidth = Math.max(cellSize, rect.width - 10);
-        
-        let startYOffset = 10;
-        if (elementId === 'waiting-area' || elementId === 'pickup-area') {
-            startYOffset = 25; // Leave room for the text label at the top
-        }
-        const availableHeight = Math.max(cellSize, rect.height - startYOffset - 10);
-        
-        const maxCols = Math.max(1, Math.floor(availableWidth / cellSize));
-        const maxRows = Math.max(1, Math.floor(availableHeight / cellSize));
-        const maxSlots = maxCols * maxRows;
-        
-        // Find their base cell
-        const slot = offsetIndex % maxSlots;
-        const col = slot % maxCols;
-        const row = Math.floor(slot / maxCols);
-        
-        const baseX = rect.left + 5 + (col * cellSize) + (cellSize / 2);
-        const baseY = rect.top + startYOffset + (row * cellSize) + (cellSize / 2);
-        
-        // Add a deterministic jitter (-5px to +5px) inside their cell
-        const jitterX = (Math.abs(Math.sin(offsetIndex * 12.9898) * 43758.5453) % 1) * 10 - 5;
-        const jitterY = (Math.abs(Math.cos(offsetIndex * 78.233) * 43758.5453) % 1) * 10 - 5;
-        
-        // Centering the customer sprite (which is 25x25) in the cell
-        x = baseX - 12.5 + jitterX;
-        y = baseY - 12.5 + jitterY;
-        return { x, y };
-    }
-    
-    // If it's the cashier queue, start at the far RIGHT edge (next to cashier) and offset left. Wrap if too long.
-    if (elementId.startsWith('cashier-queue-')) {
-        let y = rect.top + 20; // Start near the top of the container to allow wrapping downwards
-        
-        if (offsetIndex < 0) {
-            // Customer is actively ordering/paying
-            x = rect.right - 40; // Push further left so customer does not overlap cashier
-            y = rect.top + rect.height / 2 - 12.5; // vertically center the active person
-        } else {
-            // Calculate how many people fit in this specific container dynamically
-            const availableWidth = rect.width - 70;
-            const maxCols = Math.max(1, Math.floor(availableWidth / 30));
-            
-            const col = offsetIndex % maxCols; // Wrap after hitting the left edge
-            const row = Math.floor(offsetIndex / maxCols);
-            
-            // Add extra padding (70px) so there's a visible gap behind the person ordering
-            x = rect.right - 70; 
-            x -= (col * 30);
-            y += (row * 30); // Wrap downwards
-        }
-        return { x, y };
-    }
-    // Otherwise standard positive offset
-    else {
-        x += (offsetIndex * 30);
-    }
-    
-    return { x, y };
-}
-
-function moveCustomer(id, targetId, offsetIndex = 0) {
-    if (!customers.has(id)) {
-        const el = document.createElement('div');
-        el.className = 'customer';
-        el.innerHTML = `<span>${id.replace('Cust-', '')}</span><div class="customer__badge"></div>`;
-        
-        // Spawn directly at their target destination so they never appear outside the box
-        const initialTarget = getTargetCoords(targetId, offsetIndex);
-        
-        // Set the transform inline to position it exactly at entrance BEFORE appending
-        el.style.transition = 'none';
-        el.style.transform = `translate(${initialTarget.x}px, ${initialTarget.y}px) scale(0)`;
-        
-        floatingLayer.appendChild(el);
-        customers.set(id, el);
-        
-        // Wait for browser to paint the initial state, then enable transitions and scale up
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                const currentEl = customers.get(id);
-                if (currentEl) {
-                    currentEl.style.transition = '';
-                    currentEl.classList.add('customer--spawned');
-                    currentEl.style.transform = `translate(${initialTarget.x}px, ${initialTarget.y}px) scale(1)`;
-                }
-            });
-        });
-        
-        return; // Return early, as the rest is handled in requestAnimationFrame
-    }
-    
-    // For existing customers moving between areas
-    const el = customers.get(id);
-    el.classList.add('customer--spawned');
-    
-    const target = getTargetCoords(targetId, offsetIndex);
-    el.style.transform = `translate(${target.x}px, ${target.y}px) scale(1)`;
-}
-
-function updateTableStatus(tableId, status, type) {
-    const statusEl = document.getElementById(`status-${tableId}`);
-    if (statusEl) {
-        statusEl.innerText = status;
-        if (type === 'waiting') {
-            statusEl.style.color = 'var(--color-error)';
-        } else if (type === 'eating') {
-            statusEl.style.color = 'var(--color-success)';
-        } else {
-            statusEl.style.color = 'var(--color-text-secondary)';
-        }
-    }
-}
-
-function showPopUpIcon(staffElementId, iconStr) {
-    const staffEl = document.getElementById(staffElementId);
-    if (!staffEl) return;
-    
-    const popup = document.createElement('div');
-    popup.innerText = iconStr;
-    popup.style.position = 'absolute';
-    popup.style.fontSize = '20px';
-    popup.style.pointerEvents = 'none';
-    popup.style.zIndex = '1000';
-    
-    const rect = staffEl.getBoundingClientRect();
-    const fLayer = document.getElementById('floating-layer');
-    if (!fLayer) return;
-    
-    fLayer.appendChild(popup);
-    
-    // Center above the staff member
-    popup.style.left = (rect.left + rect.width / 2 - 10) + 'px';
-    popup.style.top = (rect.top - 15) + 'px';
-    
-    popup.animate([
-        { transform: 'translateY(0px)', opacity: 1 },
-        { transform: 'translateY(-40px)', opacity: 0 }
-    ], {
-        duration: 1000,
-        easing: 'ease-out'
-    });
-    
-    setTimeout(() => {
-        if (popup.parentNode) popup.parentNode.removeChild(popup);
-    }, 1000);
-}
-
-function updateFrustrationVisuals(id) {
-    const el = customers.get(id);
-    if (!el) return;
-    
-    let level = customerFrustrationMap.get(id) || 0;
-    
-    if (level === 0) {
-        el.classList.remove('customer--frustrated');
-        const badge = el.querySelector('.customer__badge');
-        if (badge) {
-            badge.innerText = '';
-            badge.style.display = '';
-        }
-        return;
-    }
-    
-    el.classList.add('customer--frustrated');
-    
-    const badge = el.querySelector('.customer__badge');
-    if (badge) {
-        badge.style.display = '';
-        if (level === 1) {
-            badge.innerText = '⌚';
-        } else if (level === 2) {
-            badge.innerText = '😠';
-        } else {
-            badge.innerText = '😡';
-        }
-    }
-}
 
 function handleEvent(data) {
     if (data.event === 'warmup_complete') {
@@ -460,52 +210,28 @@ function handleEvent(data) {
             totalCustomers++;
             document.getElementById('total-customers').innerText = totalCustomers;
             const numId = parseInt(id.replace('Cust-', '')) || 0;
-            moveCustomer(id, 'entrance', numId);
+            customerRenderer.moveCustomer(id, 'entrance', numId);
             break;
             
         case 'balking_start':
-            const bStartEl = customers.get(id);
-            if (bStartEl) {
-                bStartEl.classList.add('customer--frustrated');
-                const badge = bStartEl.querySelector('.customer__badge');
-                if (badge) badge.innerText = '🙅';
-            }
+customerRenderer.incrementFrustration(id, 4);
             break;
             
         case 'balk_leave':
             lostCustomers++;
-            const balkEl = customers.get(id);
-            if (balkEl) {
-                // They waited a while at the entrance, now they walk back out slowly
-                balkEl.style.transform += ' translate(-200px, 50px)'; 
-                balkEl.style.opacity = '0';
-                setTimeout(() => {
-                    if (balkEl.parentNode) balkEl.parentNode.removeChild(balkEl);
-                    customers.delete(id);
-                }, 1200);
-            }
+customerRenderer.removeCustomer(id);
             break;
             
         case 'frustrated_waiting':
-            let fLevel = customerFrustrationMap.get(id) || 0;
-            if (fLevel < 1) fLevel = 1;
-            customerFrustrationMap.set(id, fLevel);
-            updateFrustrationVisuals(id);
+customerRenderer.incrementFrustration(id, 1);
             break;
             
         case 'patience_warning':
-            let pLevel = customerFrustrationMap.get(id) || 0;
-            if (pLevel < 2) pLevel = 2; // Warning is level 2
-            customerFrustrationMap.set(id, pLevel);
-            updateFrustrationVisuals(id);
+customerRenderer.incrementFrustration(id, 2);
             break;
             
         case 'prep_waiting_frustration':
-            let prepLevel = customerFrustrationMap.get(id) || 0;
-            prepLevel++;
-            if (prepLevel > 3) prepLevel = 3; // Max out at level 3
-            customerFrustrationMap.set(id, prepLevel);
-            updateFrustrationVisuals(id);
+customerRenderer.incrementFrustration(id, 3);
             break;
             
         case 'renege_leave':

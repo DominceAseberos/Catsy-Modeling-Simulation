@@ -108,26 +108,28 @@ export class AnalyticsModal {
 
         setText('res-wait', data.avg_wait_time.toFixed(1) + 's');
         setText('res-cycle', (data.avg_cycle_time / 60).toFixed(1) + ' mins');
+        setText('res-lost-customers', (data.avg_lost_customers || 0).toFixed(1));
         setText('res-throughput', data.throughput_per_hour.toFixed(0) + ' / hr');
-        setText('res-util', data.avg_cashier_util.toFixed(1) + '%');
-        setText('res-barista-util', data.avg_barista_util.toFixed(1) + '%');
-        setText('res-table-util', data.avg_table_util.toFixed(1) + '%');
+        setText('res-revenue', '₱' + (data.revenue_generated || 0).toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
+        setText('res-revenue-lost', '₱' + (data.revenue_lost || 0).toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
         
         // Breakdown logic
-        const q_zero = ((data.wait_breakdown["0-2min"] / data.total_customers) * 100).toFixed(1);
-        const q_short = ((data.wait_breakdown["2-5min"] / data.total_customers) * 100).toFixed(1);
-        const q_med = ((data.wait_breakdown["5-10min"] / data.total_customers) * 100).toFixed(1);
-        const q_long = ((data.wait_breakdown[">10min"] / data.total_customers) * 100).toFixed(1);
-        
-        const qHtml = `
-            <div style="margin-bottom: 5px;">0-2 mins: <strong style="color:var(--color-success)">${q_zero}%</strong></div>
-            <div style="margin-bottom: 5px;">2-5 mins: <strong style="color:var(--color-warning)">${q_short}%</strong></div>
-            <div style="margin-bottom: 5px;">5-10 mins: <strong style="color:var(--color-alert)">${q_med}%</strong></div>
-            <div>>10 mins: <strong style="color:var(--color-error)">${q_long}%</strong></div>
-        `;
-        
-        const brEl = document.getElementById('res-breakdown');
-        if (brEl) brEl.innerHTML = qHtml;
+        if (data.wait_breakdown && data.total_customers) {
+            const q_zero = ((data.wait_breakdown["0-2min"] / data.total_customers) * 100).toFixed(1);
+            const q_short = ((data.wait_breakdown["2-5min"] / data.total_customers) * 100).toFixed(1);
+            const q_med = ((data.wait_breakdown["5-10min"] / data.total_customers) * 100).toFixed(1);
+            const q_long = ((data.wait_breakdown[">10min"] / data.total_customers) * 100).toFixed(1);
+            
+            const qHtml = `
+                <div style="margin-bottom: 5px;">0-2 mins: <strong style="color:var(--color-success)">${q_zero}%</strong></div>
+                <div style="margin-bottom: 5px;">2-5 mins: <strong style="color:var(--color-warning)">${q_short}%</strong></div>
+                <div style="margin-bottom: 5px;">5-10 mins: <strong style="color:var(--color-alert)">${q_med}%</strong></div>
+                <div>>10 mins: <strong style="color:var(--color-error)">${q_long}%</strong></div>
+            `;
+            
+            const brEl = document.getElementById('res-breakdown');
+            if (brEl) brEl.innerHTML = qHtml;
+        }
     }
 }
 
