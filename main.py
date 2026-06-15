@@ -23,7 +23,8 @@ class SimConfig(BaseModel):
     cashiers: int
     baristas: int
     tables: int
-    resTables: int
+    resArrivalMin: float
+    resArrivalMax: float
     arrival: float
     decideMin: float
     decideMax: float
@@ -34,6 +35,7 @@ class SimConfig(BaseModel):
     dwellMin: float
     dwellMax: float
     balkProb: float
+    balkThreshold: int
     renegeProb: float
     maxStrikes: int
     takeoutProb: float
@@ -49,7 +51,8 @@ async def analyze_simulation(cfg: SimConfig):
         "cashier_count": cfg.cashiers,
         "barista_count": cfg.baristas,
         "table_count": cfg.tables,
-        "res_table_count": cfg.resTables,
+        "res_arrival_min": cfg.resArrivalMin,
+        "res_arrival_max": cfg.resArrivalMax,
         "avg_arrival_time": cfg.arrival,
         "decide_min": cfg.decideMin,
         "decide_max": cfg.decideMax,
@@ -60,6 +63,7 @@ async def analyze_simulation(cfg: SimConfig):
         "dwell_min": cfg.dwellMin,
         "dwell_max": cfg.dwellMax,
         "balk_prob": cfg.balkProb,
+        "balk_threshold": cfg.balkThreshold,
         "renege_prob": cfg.renegeProb,
         "max_strikes": cfg.maxStrikes,
         "takeout_prob": cfg.takeoutProb,
@@ -74,6 +78,18 @@ async def analyze_simulation(cfg: SimConfig):
     results = await asyncio.to_thread(run_batch_simulation, config, rep_count, duration_s)
     return results
 
+SIM_STATE = {"paused": False}
+
+@app.post("/api/pause")
+async def pause_simulation():
+    SIM_STATE["paused"] = True
+    return {"status": "paused"}
+
+@app.post("/api/resume")
+async def resume_simulation():
+    SIM_STATE["paused"] = False
+    return {"status": "resumed"}
+
 # Background task queue for this specific connection
 # (To support multiple connections properly, we'd need a ConnectionManager, but for a single UI this is fine)
 
@@ -85,7 +101,8 @@ async def websocket_endpoint(websocket: WebSocket):
     cashiers = int(websocket.query_params.get("cashiers", 1))
     baristas = int(websocket.query_params.get("baristas", 2))
     tables = int(websocket.query_params.get("tables", 5))
-    res_tables = int(websocket.query_params.get("resTables", 2))
+    res_arrival_min = float(websocket.query_params.get("resArrivalMin", 30.0))
+    res_arrival_max = float(websocket.query_params.get("resArrivalMax", 180.0))
     arrival = float(websocket.query_params.get("arrival", 3.0))
     
     decide_min = float(websocket.query_params.get("decideMin", 10.0))
@@ -98,6 +115,7 @@ async def websocket_endpoint(websocket: WebSocket):
     dwell_max = float(websocket.query_params.get("dwellMax", 3600.0))
     duration_str = websocket.query_params.get("duration", "0")
     balk_prob = float(websocket.query_params.get("balkProb", 0.5))
+    balk_threshold = int(websocket.query_params.get("balkThreshold", 8))
     renege_prob = float(websocket.query_params.get("renegeProb", 0.3))
     max_strikes = int(websocket.query_params.get("maxStrikes", 3))
     takeout_prob = float(websocket.query_params.get("takeoutProb", 0.5))
@@ -108,7 +126,8 @@ async def websocket_endpoint(websocket: WebSocket):
         "cashier_count": cashiers,
         "barista_count": baristas,
         "table_count": tables,
-        "res_table_count": res_tables,
+        "res_arrival_min": res_arrival_min,
+        "res_arrival_max": res_arrival_max,
         "avg_arrival_time": arrival,
         "decide_min": decide_min,
         "decide_max": decide_max,
@@ -120,6 +139,7 @@ async def websocket_endpoint(websocket: WebSocket):
         "dwell_max": dwell_max,
         "duration": float(duration_str) if duration_str else 0,
         "balk_prob": balk_prob,
+        "balk_threshold": balk_threshold,
         "renege_prob": renege_prob,
         "max_strikes": max_strikes,
         "takeout_prob": takeout_prob,
@@ -132,7 +152,7 @@ async def websocket_endpoint(websocket: WebSocket):
     
     def run_sim():
         # Pass config to simulation
-        start_simulation(thread_queue, config, speed_factor=0.5)
+        start_simulation(thread_queue, config, speed_factor=0.5, sim_state=SIM_STATE)
 
     sim_thread = threading.Thread(target=run_sim, daemon=True)
     sim_thread.start()

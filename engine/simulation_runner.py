@@ -3,12 +3,14 @@ import simpy.rt
 import random
 from .cafe_env import CafeEnvironment
 
-def start_simulation(event_queue, config, speed_factor=1.0):
+import time
+
+def start_simulation(event_queue, config, speed_factor=1.0, sim_state=None):
     """
-    Runs the SimPy RealtimeEnvironment in the current thread.
-    speed_factor = 1.0 means 1 simulation second = 1 real second.
+    Runs a standard SimPy Environment and steps it manually, allowing true pausing.
+    speed_factor = 0.5 means 1 real second = 2 simulation seconds.
     """
-    env = simpy.rt.RealtimeEnvironment(factor=speed_factor, strict=False)
+    env = simpy.Environment()
     cafe = CafeEnvironment(env, event_queue, config)
     env.process(cafe.run())
     env.process(cafe.tick_timer())
@@ -16,9 +18,18 @@ def start_simulation(event_queue, config, speed_factor=1.0):
     if config.get("warmup_time", 0) > 0:
         env.process(cafe.warmup_timer())
     
-    # Run indefinitely
+    # 100ms real time tick
+    tick_real_ms = 100
+    tick_sim_sec = (tick_real_ms / 1000) / speed_factor
+    
     try:
-        env.run()
+        while True:
+            if sim_state and sim_state.get("paused", False):
+                time.sleep(0.1)
+                continue
+                
+            time.sleep(tick_real_ms / 1000)
+            env.run(until=env.now + tick_sim_sec)
     except Exception as e:
         print("Simulation stopped:", e)
 

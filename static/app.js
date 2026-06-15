@@ -1,23 +1,37 @@
-import { configState } from './js/core/ConfigState.js';
-import { SettingsModal } from './js/components/SettingsModal.js';
-import { AreaPopovers } from './js/components/AreaPopovers.js';
-import { dashboardStats } from './js/core/DashboardStats.js';
-import { simulationClient } from './js/core/SimulationClient.js';
-import { analyticsModal } from './js/ui/AnalyticsModal.js';
-import { tableRenderer } from './js/ui/TableRenderer.js';
-import { staffRenderer } from './js/ui/StaffRenderer.js';
-import { customerRenderer } from './js/ui/CustomerRenderer.js';
+import { configState } from './js/core/ConfigState.js?v=23';
+import { SettingsModal } from './js/components/SettingsModal.js?v=23';
+import { AreaPopovers } from './js/components/AreaPopovers.js?v=23';
+import { dashboardStats } from './js/core/DashboardStats.js?v=23';
+import { simulationClient } from './js/core/SimulationClient.js?v=23';
+import { analyticsModal } from './js/ui/AnalyticsModal.js?v=23';
+import { tableRenderer } from './js/ui/TableRenderer.js?v=23';
+import { staffRenderer } from './js/ui/StaffRenderer.js?v=23';
+import { customerRenderer } from './js/ui/CustomerRenderer.js?v=23';
 
 // Initialize UI Components
 const settingsModal = new SettingsModal();
 const areaPopovers = new AreaPopovers();
 
-// Listen to configuration updates to save and restart
+// Listen to configuration updates to save state
 configState.addEventListener('updated', (e) => {
     localStorage.setItem('catsySimConfig', JSON.stringify(e.detail));
-    if (simulationClient.socket) {
-        startSimulation();
+    
+    const toast = document.getElementById('toast');
+    if (toast) {
+        toast.style.opacity = '1';
+        clearTimeout(toast.timeoutId);
+        toast.timeoutId = setTimeout(() => {
+            toast.style.opacity = '0';
+        }, 3000);
     }
+    
+    // We intentionally do NOT auto-restart startSimulation() here.
+    // The user must manually click 'Restart' to apply new settings,
+    // to avoid wiping the active simulation UI abruptly when tweaking settings.
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadConfigFromStorage();
 });
 
 function loadConfigFromStorage() {
@@ -25,9 +39,60 @@ function loadConfigFromStorage() {
     if (!saved) return;
     try {
         const config = JSON.parse(saved);
-        for (const [id, value] of Object.entries(config)) {
-            // ConfigState grabs initial state, no manual DOM update here
+        
+        const directMap = {
+            'cashiers': 'cfg-cashiers', 'baristas': 'cfg-baristas', 'tables': 'cfg-tables',
+            'resArrivalMin': 'cfg-res-arrival-min', 'resArrivalMax': 'cfg-res-arrival-max',
+            'arrival': 'cfg-arrival', 'duration': 'cfg-duration', 'warmupTime': 'cfg-warmup',
+            'balkThreshold': 'cfg-balk-threshold', 'maxStrikes': 'cfg-max-strikes',
+            'decideMin': 'cfg-decide-min', 'decideMax': 'cfg-decide-max',
+            'payMin': 'cfg-pay-min', 'payMax': 'cfg-pay-max',
+            'prepMin': 'cfg-prep-min', 'prepMax': 'cfg-prep-max',
+            'dwellMin': 'cfg-dwell-min', 'dwellMax': 'cfg-dwell-max',
+            'replications': 'cfg-replications', 'shiftHours': 'cfg-shift-hours'
+        };
+        
+        const probMap = {
+            'takeoutProb': 'cfg-takeout-prob', 'resProb': 'cfg-res-prob',
+            'balkProb': 'cfg-balk-prob', 'renegeProb': 'cfg-renege-prob'
+        };
+        
+        for (const [key, domId] of Object.entries(directMap)) {
+            if (config[key] !== undefined) {
+                const el = document.getElementById(domId);
+                if (el) el.value = config[key];
+            }
         }
+        
+        for (const [key, domId] of Object.entries(probMap)) {
+            if (config[key] !== undefined) {
+                const el = document.getElementById(domId);
+                if (el) el.value = config[key] * 100; // Convert back to percentage
+            }
+        }
+        
+        // Also update the scenario select box if it matches an arrival value
+        const scenarioSelect = document.getElementById('cfg-scenario');
+        if (scenarioSelect && config.arrival) {
+            let match = false;
+            for (let option of scenarioSelect.options) {
+                if (option.value == config.arrival && option.value !== 'custom') {
+                    scenarioSelect.value = option.value;
+                    match = true;
+                    break;
+                }
+            }
+            if (!match) scenarioSelect.value = 'custom';
+        }
+        
+        // Update the span displays for quick controls
+        const dispCashiers = document.getElementById('disp-cashiers');
+        if (dispCashiers && config.cashiers) dispCashiers.innerText = config.cashiers;
+        const dispBaristas = document.getElementById('disp-baristas');
+        if (dispBaristas && config.baristas) dispBaristas.innerText = config.baristas;
+        const dispTables = document.getElementById('disp-tables');
+        if (dispTables && config.tables) dispTables.innerText = config.tables;
+        
     } catch (e) {
         console.error('Failed to parse saved config', e);
     }
@@ -52,6 +117,8 @@ let servedCustomers = 0;
 let lostCustomers = 0;
 let totalDineIn = 0;
 let totalTakeout = 0;
+let totalReservations = 0;
+let missedReservations = 0;
 const cashierOffsets = new Map();
 const customerCashierMap = new Map();
 const waitingAreaOffsets = new Map();
@@ -64,16 +131,27 @@ let baristaTimers = {};
 
 function enforceBounds() {
     const cashiersEl = document.getElementById('cfg-cashiers');
-    if (cashiersEl && parseInt(cashiersEl.value) > 10) cashiersEl.value = 10;
-    if (cashiersEl && parseInt(cashiersEl.value) < 1) cashiersEl.value = 1;
+    if (cashiersEl) {
+        let cVal = parseInt(cashiersEl.value);
+        if (isNaN(cVal) || cVal < 1) cashiersEl.value = 1;
+        else if (cVal > 10) cashiersEl.value = 10;
+    }
     
     const baristasEl = document.getElementById('cfg-baristas');
-    if (baristasEl && parseInt(baristasEl.value) > 15) baristasEl.value = 15;
-    if (baristasEl && parseInt(baristasEl.value) < 1) baristasEl.value = 1;
+    if (baristasEl) {
+        let bVal = parseInt(baristasEl.value);
+        if (isNaN(bVal) || bVal < 1) baristasEl.value = 1;
+        else if (bVal > 15) baristasEl.value = 15;
+    }
 }
 
 function startSimulation() {
     enforceBounds();
+    
+    // Ensure the backend isn't stuck in a paused state (e.g. if the user hit restart while the settings modal was open)
+    fetch('/api/resume', { method: 'POST' }).catch(e => console.error(e));
+    simulationClient.resume(); // also ensure frontend is unpaused
+    
     simulationClient.connect();
 }
 
@@ -81,8 +159,8 @@ window.addEventListener('sim:connected', () => {
     if (statusDot) statusDot.className = 'dot green';
     if (statusText) statusText.innerText = 'Connected';
     if (btnStart) {
-        btnStart.disabled = true;
-        btnStart.innerText = '▶ Playing...';
+        btnStart.disabled = false;
+        btnStart.innerText = '⏸ Pause';
         btnStart.classList.add('playing');
     }
     if (btnStop) btnStop.disabled = false;
@@ -129,7 +207,28 @@ window.addEventListener('sim:event', (e) => {
     handleEvent(e.detail);
 });
 
-btnStart.addEventListener('click', startSimulation);
+btnStart.addEventListener('click', () => {
+    // If not connected, start the simulation
+    if (!simulationClient.socket || simulationClient.socket.readyState !== WebSocket.OPEN) {
+        startSimulation();
+        return;
+    }
+    
+    // If already connected, toggle pause/resume
+    if (simulationClient.isPaused) {
+        // Resume
+        simulationClient.resume();
+        fetch('/api/resume', { method: 'POST' }).catch(e => console.error(e));
+        btnStart.innerText = '⏸ Pause';
+        btnStart.classList.add('playing');
+    } else {
+        // Pause
+        simulationClient.pause();
+        fetch('/api/pause', { method: 'POST' }).catch(e => console.error(e));
+        btnStart.innerText = '▶ Resume';
+        btnStart.classList.remove('playing');
+    }
+});
 
 btnStop.addEventListener('click', () => {
     simulationClient.disconnect();
@@ -185,6 +284,17 @@ function resetSimulation() {
     waitingAreaLen = 0;
     pickupAreaLen = 0;
     
+    // Reset Dashboard UI values
+    const paceEl = document.getElementById('current-pace');
+    if (paceEl) paceEl.innerText = 'Quiet 💤';
+    
+    document.getElementById('sim-time').innerText = '0.0s';
+    document.getElementById('total-customers').innerText = '0';
+    document.getElementById('served-customers').innerText = '0';
+    document.getElementById('lost-customers').innerText = '0';
+    document.getElementById('cashier-queue-len').innerText = '0';
+    document.getElementById('waiting-area-len').innerText = '0';
+    
     // Dynamically draw cashiers
     const cashiersCount = parseInt(document.getElementById('cfg-cashiers').value);
     staffRenderer.drawCashiers(cashiersCount);
@@ -196,12 +306,9 @@ function resetSimulation() {
     const baristasCount = parseInt(document.getElementById('cfg-baristas').value);
     staffRenderer.drawBaristas(baristasCount);
     
-    // Dynamically draw tables and initialize available tables list
+    // Dynamically draw tables
     const tablesCount = parseInt(document.getElementById('cfg-tables').value);
-    const resTablesCount = parseInt(document.getElementById('cfg-res-tables').value);
-    tableRenderer.draw(tablesCount, resTablesCount);
-    availableTables = [...tableRenderer.availableTables];
-    availableResTables = [...tableRenderer.availableResTables];
+    tableRenderer.draw(tablesCount);
 }
 
 
@@ -224,6 +331,9 @@ function updateStats(time) {
 
 
 function handleEvent(data) {
+    if (tableRenderer && data.time) {
+        tableRenderer.tickTimers(data.time);
+    }
     if (data.event === 'warmup_complete') {
         document.getElementById('warmup-indicator').style.display = 'none';
         totalCustomers = 0;
@@ -231,11 +341,17 @@ function handleEvent(data) {
         lostCustomers = 0;
         totalDineIn = 0;
         totalTakeout = 0;
+        totalReservations = 0;
+        missedReservations = 0;
         document.getElementById('total-customers').innerText = totalCustomers;
         document.getElementById('served-customers').innerText = servedCustomers;
         document.getElementById('lost-customers').innerText = lostCustomers;
         document.getElementById('total-dine-in').innerText = totalDineIn;
         document.getElementById('total-takeout').innerText = totalTakeout;
+        const totalResEl = document.getElementById('total-reservations');
+        if (totalResEl) totalResEl.innerText = totalReservations;
+        const missedResEl = document.getElementById('missed-reservations');
+        if (missedResEl) missedResEl.innerText = missedReservations;
         return;
     }
     if (data.event === 'pace_change') {
@@ -268,12 +384,31 @@ function handleEvent(data) {
             break;
             
         case 'balking_start':
+            const balkStartEl = customerRenderer.customers.get(id);
+            if (balkStartEl) balkStartEl.classList.add('customer--walkout');
             customerRenderer.incrementFrustration(id, 4);
             break;
             
         case 'balk_leave':
             lostCustomers++;
-            customerRenderer.removeCustomer(id);
+            const balkEl = customerRenderer.customers.get(id);
+            if (balkEl) {
+                const badge = balkEl.querySelector('.customer__badge');
+                if (badge) {
+                    badge.innerText = '🙅';
+                    badge.style.display = 'flex';
+                }
+                // Storm out from entrance
+                balkEl.classList.add('customer--walkout');
+                balkEl.style.transition = 'transform 3.5s ease-in, opacity 3.5s ease-in';
+                balkEl.style.transform += ' translate(-80px, 200px)';
+                balkEl.style.opacity = '0';
+                setTimeout(() => {
+                    customerRenderer.removeCustomer(id);
+                }, 3500);
+            } else {
+                customerRenderer.removeCustomer(id);
+            }
             break;
             
         case 'frustrated_waiting':
@@ -293,6 +428,7 @@ function handleEvent(data) {
             
             // Remove them from the queue tracking
             const cIdxToLeave = data.cashier_index;
+            if (isNaN(cashierQueueLens[cIdxToLeave]) || cashierQueueLens[cIdxToLeave] === undefined) { cashierQueueLens[cIdxToLeave] = 0; }
             cashierQueueLens[cIdxToLeave] = Math.max(0, cashierQueueLens[cIdxToLeave] - 1);
             
             const leavingOffset = cashierOffsets.get(id);
@@ -316,7 +452,7 @@ function handleEvent(data) {
             // Animate them storming out in frustration
             const renegeEl = customerRenderer.customers.get(id);
             if (renegeEl) {
-                renegeEl.classList.add('customer--frustrated');
+                renegeEl.classList.add('customer--walkout');
                 const badge = renegeEl.querySelector('.customer__badge');
                 if (badge) {
                     badge.innerText = '🏃';
@@ -337,12 +473,13 @@ function handleEvent(data) {
                 // Wait for 2 seconds so the user can clearly see them get frustrated
                 setTimeout(() => {
                     // Then they storm out completely
+                    renegeEl.style.transition = 'transform 3.5s ease-in, opacity 3.5s ease-in';
                     renegeEl.style.transform += ' translate(-150px, 200px)';
                     renegeEl.style.opacity = '0';
                     setTimeout(() => {
                         if (renegeEl.parentNode) renegeEl.parentNode.removeChild(renegeEl);
                         customerRenderer.customers.delete(id);
-                    }, 1200);
+                    }, 3500);
                 }, 2000);
             }
             break;
@@ -361,6 +498,7 @@ function handleEvent(data) {
             const cIdx = data.cashier_index;
             customerCashierMap.set(id, cIdx);
             
+            if (isNaN(cashierQueueLens[cIdx]) || cashierQueueLens[cIdx] === undefined) { cashierQueueLens[cIdx] = 0; }
             cashierQueueLens[cIdx]++;
             cashierOffsets.set(id, cashierQueueLens[cIdx] - 1);
             customerRenderer.moveCustomer(id, `cashier-queue-${cIdx}`, cashierQueueLens[cIdx] - 1);
@@ -368,6 +506,7 @@ function handleEvent(data) {
             
         case 'start_deciding':
             const decIdx = data.cashier_index;
+            if (isNaN(cashierQueueLens[decIdx]) || cashierQueueLens[decIdx] === undefined) { cashierQueueLens[decIdx] = 0; }
             cashierQueueLens[decIdx] = Math.max(0, cashierQueueLens[decIdx] - 1);
             
             customerRenderer.moveCustomer(id, `cashier-queue-${decIdx}`, -1);
@@ -492,33 +631,31 @@ function handleEvent(data) {
             }
             break;
             
+        case 'table_reserved':
+            totalReservations++;
+            const totalResEl = document.getElementById('total-reservations');
+            if (totalResEl) totalResEl.innerText = totalReservations;
+            tableRenderer.setReserved(data.table_id, data.time, data.limit);
+            break;
+            
+        case 'table_unreserved':
+            tableRenderer.setUnreserved(data.table_id);
+            break;
+            
+        case 'missed_reservation':
+            missedReservations++;
+            const missedResEl = document.getElementById('missed-reservations');
+            if (missedResEl) missedResEl.innerText = missedReservations;
+            break;
+            
         case 'seated_waiting_order':
             waitingAreaLen = Math.max(0, waitingAreaLen - 1);
             
-            let tableId;
-            if (data.is_reservation) {
-                const currentResTablesCount = parseInt(document.getElementById('cfg-res-tables').value);
-                tableId = `res-table-${Math.floor(Math.random() * currentResTablesCount) + 1}`; // fallback
-                if (availableResTables.length > 0) {
-                    tableId = availableResTables.shift();
-                }
-            } else {
-                const currentTablesCount = parseInt(document.getElementById('cfg-tables').value);
-                tableId = `table-${Math.floor(Math.random() * currentTablesCount) + 1}`; // fallback
-                if (availableTables.length > 0) {
-                    tableId = availableTables.shift();
-                }
-            }
-            
+            const tableId = data.table_id;
             customerTableMap.set(id, tableId);
+            customerRenderer.moveCustomer(id, `table-${tableId}`);
             
-            customerRenderer.moveCustomer(id, tableId);
-            tableRenderer.updateStatus(tableId, "Waiting for Order...", "waiting");
-            // clear inline styles if it's a reservation table, to avoid sticking to 'Reserved' color when text is updated
-            if (data.is_reservation) {
-                document.getElementById(`status-${tableId}`).style.color = '';
-                document.getElementById(`status-${tableId}`).style.fontWeight = '';
-            }
+            tableRenderer.setOccupied(tableId, data.time, data.is_reservation, 'waiting');
             break;
             
         case 'start_prep':
@@ -573,7 +710,8 @@ function handleEvent(data) {
             // Order arrived! Time to eat.
             const tId = customerTableMap.get(id);
             if (tId) {
-                tableRenderer.updateStatus(tId, "Eating/Drinking", "eating");
+                // If it's a reserved customer, badge has already been hidden during setOccupied, but pass false to be safe
+                tableRenderer.setOccupied(tId, data.time, false, 'eating');
             }
             
             const finishedBIdx = customerBaristaMap.get(id);
@@ -621,15 +759,7 @@ function handleEvent(data) {
             // Clear table status and mark table as available again (Dine-in customers)
             const leftTableId = customerTableMap.get(id);
             if (leftTableId) {
-                if (leftTableId.startsWith('res-table-')) {
-                    tableRenderer.updateStatus(leftTableId, "Reserved", "");
-                    document.getElementById(`status-${leftTableId}`).style.color = '#f39c12';
-                    document.getElementById(`status-${leftTableId}`).style.fontWeight = 'bold';
-                    availableResTables.push(leftTableId);
-                } else {
-                    tableRenderer.updateStatus(leftTableId, "", "");
-                    availableTables.push(leftTableId);
-                }
+                tableRenderer.setEmpty(leftTableId);
                 customerTableMap.delete(id);
             }
             break;

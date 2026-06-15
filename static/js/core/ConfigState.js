@@ -11,11 +11,12 @@ class ConfigState extends EventTarget {
      * This acts as the single source of truth parser.
      */
     refreshFromDOM() {
-        this.state = {
+        const newState = {
             cashiers: parseInt(document.getElementById('cfg-cashiers')?.value || 1),
             baristas: parseInt(document.getElementById('cfg-baristas')?.value || 2),
             tables: parseInt(document.getElementById('cfg-tables')?.value || 5),
-            resTables: parseInt(document.getElementById('cfg-res-tables')?.value || 2),
+            resArrivalMin: parseFloat(document.getElementById('cfg-res-arrival-min')?.value || 30.0),
+            resArrivalMax: parseFloat(document.getElementById('cfg-res-arrival-max')?.value || 180.0),
             
             arrival: parseFloat(document.getElementById('cfg-arrival')?.value || 45.0),
             duration: parseInt(document.getElementById('cfg-duration')?.value || 0),
@@ -24,6 +25,7 @@ class ConfigState extends EventTarget {
             takeoutProb: (parseFloat(document.getElementById('cfg-takeout-prob')?.value || 50)) / 100.0,
             resProb: (parseFloat(document.getElementById('cfg-res-prob')?.value || 20)) / 100.0,
             balkProb: (parseFloat(document.getElementById('cfg-balk-prob')?.value || 50)) / 100.0,
+            balkThreshold: parseInt(document.getElementById('cfg-balk-threshold')?.value || 8),
             renegeProb: (parseFloat(document.getElementById('cfg-renege-prob')?.value || 30)) / 100.0,
             maxStrikes: parseInt(document.getElementById('cfg-max-strikes')?.value || 3),
             
@@ -40,8 +42,11 @@ class ConfigState extends EventTarget {
             shiftHours: parseFloat(document.getElementById('cfg-shift-hours')?.value || 2)
         };
         
-        // Emit event whenever config refreshes
-        this.dispatchEvent(new CustomEvent('updated', { detail: this.state }));
+        // Only emit if state actually changed
+        if (JSON.stringify(this.state) !== JSON.stringify(newState)) {
+            this.state = newState;
+            this.dispatchEvent(new CustomEvent('updated', { detail: this.state }));
+        }
     }
 
     /**

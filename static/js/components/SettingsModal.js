@@ -18,7 +18,9 @@ export class SettingsModal {
         if (this.btnSettings && this.settingsScrim) {
             this.btnSettings.addEventListener('click', () => {
                 this.settingsScrim.classList.add('scrim--active');
-                simulationClient.pause();
+                // Tell backend to freeze simulation time
+                fetch('/api/pause', { method: 'POST' }).catch(e => console.error(e));
+                simulationClient.pause(); // Freeze frontend UI events
             });
         }
 
@@ -26,9 +28,29 @@ export class SettingsModal {
         if (this.btnCloseSettings && this.settingsScrim) {
             this.btnCloseSettings.addEventListener('click', () => {
                 this.settingsScrim.classList.remove('scrim--active');
+                // Resume frontend UI
                 simulationClient.resume();
+                // Tell backend to unfreeze simulation time
+                fetch('/api/resume', { method: 'POST' }).catch(e => console.error(e));
+                
                 // Persist/Update config state when modal closes
                 configState.refreshFromDOM();
+            });
+        }
+        
+        const btnSaveApply = document.getElementById('btn-save-apply');
+        if (btnSaveApply && this.settingsScrim) {
+            btnSaveApply.addEventListener('click', () => {
+                this.settingsScrim.classList.remove('scrim--active');
+                configState.refreshFromDOM();
+                
+                // Trigger a full restart with the new config immediately
+                if (typeof startSimulation === 'function') {
+                    startSimulation();
+                } else {
+                    simulationClient.resume();
+                    fetch('/api/resume', { method: 'POST' }).catch(e => console.error(e));
+                }
             });
         }
 

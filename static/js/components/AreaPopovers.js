@@ -25,8 +25,10 @@ export class AreaPopovers {
                 
                 if (!isVisible) {
                     pop.style.display = 'block';
+                    fetch('/api/pause', { method: 'POST' }).catch(e => console.error(e));
                     simulationClient.pause();
                 } else {
+                    fetch('/api/resume', { method: 'POST' }).catch(e => console.error(e));
                     simulationClient.resume();
                 }
             });
@@ -42,7 +44,10 @@ export class AreaPopovers {
                         closedAny = true;
                     }
                 });
-                if (closedAny) simulationClient.resume();
+                if (closedAny) {
+                    fetch('/api/resume', { method: 'POST' }).catch(e => console.error(e));
+                    simulationClient.resume();
+                }
             }
         });
     }

@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Catsy Coffee Simulation</title>
     <link rel="icon" href="data:,">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/static/style.css?v=5">
 </head>
 <body>
@@ -37,8 +36,8 @@
         <div class="modal">
             <div class="modal__header">
                 <h2 class="modal__title">Simulation Configuration</h2>
-                <div>
-                    <button class="button button--action" onclick="resetConfigToDefault()" style="margin-right: 10px;">Set to Default</button>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button id="btn-save-apply" class="btn" style="background-color: var(--color-success); border-color: var(--color-success); font-weight: bold; padding: 6px 12px; font-size: 0.9rem;">Save & Apply</button>
                     <button id="btn-close-settings" class="button button--secondary">Close</button>
                 </div>
             </div>
@@ -80,12 +79,12 @@
                         <input type="number" class="config-item__input" id="cfg-takeout-prob" value="50" min="0" max="100">
                     </div>
                     <div class="config-item">
-                        <label>Reservation (%) <span class="info-icon info-icon--right" data-tooltip="Percentage of dine-in customers who are VIPs with reserved tables">ⓘ</span></label>
-                        <input type="number" class="config-item__input" id="cfg-res-prob" value="20" min="0" max="100">
-                    </div>
-                    <div class="config-item">
                         <label>Line Too Long (%) <span class="info-icon info-icon--right" data-tooltip="Chance a customer walks out immediately if the entrance is crowded">ⓘ</span></label>
                         <input type="number" class="config-item__input" id="cfg-balk-prob" value="50" min="0" max="100">
+                    </div>
+                    <div class="config-item">
+                        <label>Line Too Long Threshold <span class="info-icon info-icon--right" data-tooltip="How many people need to be in line before it's considered 'too long'">ⓘ</span></label>
+                        <input type="number" class="config-item__input" id="cfg-balk-threshold" value="8" min="1" max="50">
                     </div>
                     <div class="config-item">
                         <label>Tired of Waiting (%) <span class="info-icon info-icon--right" data-tooltip="Chance a customer storms out if they wait in the queue too long">ⓘ</span></label>
@@ -94,6 +93,23 @@
                     <div class="config-item">
                         <label>Max Wait Strikes <span class="info-icon info-icon--right" data-tooltip="How many times a customer gets angry before they decide to leave">ⓘ</span></label>
                         <input type="number" class="config-item__input" id="cfg-max-strikes" value="3" min="1" max="10">
+                    </div>
+                </div>
+                
+                <!-- Tables & Reservations -->
+                <div class="config-section">
+                    <h3 class="config-section__title">Tables & Reservations</h3>
+                    <div class="config-item">
+                        <label>Reservation (%) <span class="info-icon info-icon--right" data-tooltip="Percentage of dine-in customers who pre-reserved tables">ⓘ</span></label>
+                        <input type="number" class="config-item__input" id="cfg-res-prob" value="20" min="0" max="100">
+                    </div>
+                    <div class="config-item">
+                        <label>Arrival Time Min (s) <span class="info-icon info-icon--right" data-tooltip="Minimum time a customer is allowed to arrive after reserving">ⓘ</span></label>
+                        <input type="number" class="config-item__input" id="cfg-res-arrival-min" value="30" min="1" max="600">
+                    </div>
+                    <div class="config-item">
+                        <label>Arrival Time Max (s) <span class="info-icon info-icon--right" data-tooltip="Maximum time a customer is allowed to arrive after reserving">ⓘ</span></label>
+                        <input type="number" class="config-item__input" id="cfg-res-arrival-max" value="180" min="1" max="1200">
                     </div>
                 </div>
 
@@ -115,12 +131,15 @@
                             <div style="margin-bottom: 8px; color: var(--color-accent); font-weight: bold;">Entities & Events</div>
                             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="font-size: 1.2rem;">💰</span> Cashier processing payment</div>
                             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="font-size: 1.2rem;">🛍️</span> Customer taking order to-go</div>
-                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; border: 1px dashed #f39c12; color: #f39c12; text-align: center; line-height: 20px; font-size: 0.6rem; font-weight: bold;">[R]</span> VIP Pre-Reserved Table</div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; border: 1px dashed #f39c12; color: #f39c12; text-align: center; line-height: 20px; font-size: 0.6rem; font-weight: bold;">[R]</span> Reserved Table Badge</div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="font-size: 1.2rem;">⏳</span> Reserved table waiting for customer</div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="font-size: 1.2rem;">🍔</span> Customer dining at table</div>
                             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span class="staff" style="width: 24px; height: 24px; font-size: 0.7rem; box-shadow: none;">C1</span> Cashier / Barista Staff</div>
-                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><span style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background-color: var(--color-customer); color: white; text-align: center; line-height: 20px; font-size: 0.7rem; font-weight: bold;">1</span> Customer (Number = ID)</div>
                         </div>
                     </div>
                 </div>
+                
+
             </div>
         </div>
     </div>
@@ -138,7 +157,7 @@
             
             <div class="dashboard__stat-box">
                 <span class="dashboard__stat-label">Current Pace</span>
-                <strong id="current-pace" class="dashboard__stat-value">Steady ☕</strong>
+                <strong id="current-pace" class="dashboard__stat-value">Quiet 💤</strong>
             </div>
             
             <div class="dashboard__stat-box">
@@ -171,6 +190,16 @@
                 <strong id="total-takeout" class="dashboard__stat-value">0</strong>
             </div>
             
+            <div class="dashboard__stat-box">
+                <span class="dashboard__stat-label">Total Reservations</span>
+                <strong id="total-reservations" class="dashboard__stat-value">0</strong>
+            </div>
+            
+            <div class="dashboard__stat-box dashboard__stat-box--alert">
+                <span class="dashboard__stat-label">Missed Reservations</span>
+                <strong id="missed-reservations" class="dashboard__stat-value dashboard__stat-value--error">0</strong>
+            </div>
+
             <div class="dashboard__stat-box dashboard__stat-box--success">
                 <span class="dashboard__stat-label">Served / Left</span>
                 <strong id="served-customers" class="dashboard__stat-value dashboard__stat-value--success">0</strong>
@@ -262,21 +291,15 @@
                     <div class="area__header-row">
                         <h4 class="area__title">Dine-In Area <span class="info-icon" data-tooltip="Where dine-in customers consume their orders. Reserved tables are held for specific customers. Full tables = walkouts.">ⓘ</span></h4>
                         <div class="area__controls">
-                            <span style="font-size: 10px; color: #aaa;">Regular:</span>
+                            <span style="font-size: 10px; color: #aaa;">Tables:</span>
                             <button class="btn-ctrl" onclick="updateConfigVal('cfg-tables', -1, 1, 50)">-</button>
                             <span class="ctrl-val" id="disp-tables">5</span>
                             <button class="btn-ctrl" onclick="updateConfigVal('cfg-tables', 1, 1, 50)">+</button>
-                            
-                            <span style="font-size: 10px; color: #aaa; margin-left: 8px;">Reserved:</span>
-                            <button class="btn-ctrl" onclick="updateConfigVal('cfg-res-tables', -1, 0, 20)">-</button>
-                            <span class="ctrl-val" id="disp-res-tables">2</span>
-                            <button class="btn-ctrl" onclick="updateConfigVal('cfg-res-tables', 1, 0, 20)">+</button>
                             
                             <button class="btn-gear" data-popover="popover-dinein">⚙️</button>
                         </div>
                         <div id="popover-dinein" class="local-popover" style="display: none;">
                             <input type="hidden" id="cfg-tables" value="5">
-                            <input type="hidden" id="cfg-res-tables" value="2">
                             <div class="popover-row">
                                 <label>Dine-In Time (s)</label>
                                 <div><span style="font-weight:bold; color:#fff; margin-right:4px;">Min</span><input type="number" id="cfg-dwell-min" value="900" class="pop-input" onchange="triggerConfigUpdate()"> - <span style="font-weight:bold; color:#fff; margin-left:4px; margin-right:4px;">Max</span><input type="number" id="cfg-dwell-max" value="3600" class="pop-input" onchange="triggerConfigUpdate()"></div>
@@ -339,6 +362,11 @@
         </div>
     </div>
 
-    <script type="module" src="/static/app.js?v=20"></script>
+    <!-- Toast Notification -->
+    <div id="toast" style="position:fixed; bottom:20px; right:20px; background-color:var(--color-accent); color:#1a1a1a; padding:12px 24px; border-radius:6px; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.5); opacity:0; transition:opacity 0.3s; pointer-events:none; z-index:9999;">
+        Settings saved. Restart to apply changes.
+    </div>
+
+    <script type="module" src="/static/app.js?v=24"></script>
 </body>
 </html>
