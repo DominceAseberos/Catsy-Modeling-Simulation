@@ -1,12 +1,12 @@
-import { configState } from './js/core/ConfigState.js?v=23';
-import { SettingsModal } from './js/components/SettingsModal.js?v=23';
-import { AreaPopovers } from './js/components/AreaPopovers.js?v=23';
-import { dashboardStats } from './js/core/DashboardStats.js?v=23';
-import { simulationClient } from './js/core/SimulationClient.js?v=23';
-import { analyticsModal } from './js/ui/AnalyticsModal.js?v=23';
-import { tableRenderer } from './js/ui/TableRenderer.js?v=23';
-import { staffRenderer } from './js/ui/StaffRenderer.js?v=23';
-import { customerRenderer } from './js/ui/CustomerRenderer.js?v=23';
+import { configState } from './js/core/ConfigState.js';
+import { SettingsModal } from './js/components/SettingsModal.js';
+import { AreaPopovers } from './js/components/AreaPopovers.js';
+import { dashboardStats } from './js/core/DashboardStats.js';
+import { simulationClient } from './js/core/SimulationClient.js';
+import { analyticsModal } from './js/ui/AnalyticsModal.js';
+import { tableRenderer } from './js/ui/TableRenderer.js';
+import { staffRenderer } from './js/ui/StaffRenderer.js';
+import { customerRenderer } from './js/ui/CustomerRenderer.js';
 
 // Initialize UI Components
 const settingsModal = new SettingsModal();
