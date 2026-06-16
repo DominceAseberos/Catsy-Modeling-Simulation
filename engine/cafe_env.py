@@ -26,6 +26,7 @@ class CafeEnvironment:
         self.cycle_times = []
         self.completed_customers = 0
         self.lost_customers = 0
+        self.total_reservations = 0
 
     def emit(self, event_type, customer_id, extra=None):
         if self.event_queue is None:
@@ -57,6 +58,9 @@ class CafeEnvironment:
         table["status"] = "reserved"
         table["reserved_for"] = name
         table["reserve_time"] = self.env.now
+        
+        if self.env.now > self.config.get("warmup_time", 0):
+            self.total_reservations += 1
         
         arrival_limit = random.uniform(self.config.get("res_arrival_min", 30), self.config.get("res_arrival_max", 180))
         table["limit"] = arrival_limit

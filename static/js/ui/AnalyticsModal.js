@@ -157,9 +157,11 @@ export class AnalyticsModal {
             if (el) el.innerText = val;
         };
 
-        setText('res-wait', (data.avg_wait_time).toFixed(1) + 's');
-        setText('res-cycle', (data.avg_cycle_time / 60).toFixed(1) + ' mins');
-        setText('res-lost-customers', (data.avg_lost_customers || 0).toFixed(1));
+        setText('res-wait', (data.avg_wait_time).toFixed(1) + 's (~' + (data.avg_wait_time / 60).toFixed(1) + ' mins)');
+        setText('res-cycle', (data.avg_cycle_time).toFixed(1) + 's (~' + (data.avg_cycle_time / 60).toFixed(1) + ' mins)');
+        setText('res-lost-customers', (data.avg_lost_customers || 0).toFixed(1) + ' customers');
+        
+        setText('res-reservations', (data.avg_reservations || 0).toFixed(1));
         
         const payload = configState.getConfig();
         const fallbackArrivals = Math.round(3600 / (parseFloat(payload.arrival) || 45.0));
