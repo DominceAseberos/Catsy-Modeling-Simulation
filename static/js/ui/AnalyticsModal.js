@@ -161,7 +161,9 @@ export class AnalyticsModal {
         setText('res-cycle', (data.avg_cycle_time / 60).toFixed(1) + ' mins');
         setText('res-lost-customers', (data.avg_lost_customers || 0).toFixed(1));
         
-        setText('res-arrivals', (data.target_arrivals_per_hour || 0).toFixed(0) + ' / hr');
+        const payload = configState.getConfig();
+        const fallbackArrivals = Math.round(3600 / (parseFloat(payload.arrival) || 45.0));
+        setText('res-arrivals', (data.target_arrivals_per_hour || fallbackArrivals).toFixed(0) + ' / hr');
         setText('res-throughput', data.throughput_per_hour.toFixed(0) + ' / hr');
         
         // Breakdown logic
