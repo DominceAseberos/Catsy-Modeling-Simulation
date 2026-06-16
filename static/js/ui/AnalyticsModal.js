@@ -64,13 +64,22 @@ export class AnalyticsModal {
             const baristaMax = payload.prepMax || 180.0;
             const balkThresh = payload.balkThreshold || 8;
 
+            const resProb = Math.round((payload.resProb || 0.2) * 100);
+            const takeoutProb = Math.round((payload.takeoutProb || 0.5) * 100);
+            const balkProb = Math.round((payload.balkProb || 0.5) * 100);
+            const renegeProb = Math.round((payload.renegeProb || 0.3) * 100);
+            const warmup = payload.warmupTime || 0;
+
             this.configListDiv.innerHTML = `
-                <div><strong>Cashiers:</strong> ${cashiers}</div>
-                <div><strong>Baristas:</strong> ${baristas}</div>
+                <div><strong>Cashiers:</strong> ${cashiers} | <strong>Baristas:</strong> ${baristas} | <strong>Tables:</strong> ${payload.tables || 5}</div>
                 <div><strong>Arrival Rate:</strong> 1 every ${arrivalRate.toFixed(1)}s <span style="color:#888; font-size:11px;">(≈ ${Math.round(3600/arrivalRate)} / hr)</span></div>
                 <div><strong>Cashier Service:</strong> ${decideMin}s - ${decideMax}s</div>
                 <div><strong>Barista Service:</strong> ${baristaMin}s - ${baristaMax}s</div>
-                <div><strong>Balk Threshold:</strong> ${balkThresh} customers</div>
+                <div style="margin-top: 8px; font-weight: bold; color: var(--color-primary);">Logic & Reservations</div>
+                <div><strong>Reservations:</strong> ${resProb}% | <strong>Takeout:</strong> ${takeoutProb}%</div>
+                <div><strong>Balking (Line too long):</strong> ${balkProb}% (Threshold: ${balkThresh})</div>
+                <div><strong>Reneging (Tired of waiting):</strong> ${renegeProb}%</div>
+                <div><strong>Warm-Up Time:</strong> ${warmup}s</div>
             `;
         }
         
