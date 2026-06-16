@@ -85,5 +85,6 @@ def run_batch_simulation(config, replications=50, sim_time_seconds=3600):
         "avg_lost_customers": avg_lost,
         "revenue_generated": avg_completed * avg_ticket_size,
         "revenue_lost": avg_lost * avg_ticket_size,
+        "target_arrivals_per_hour": (3600.0 / config.get("avg_arrival_time", 45.0)) if config.get("avg_arrival_time", 45.0) > 0 else 0.0,
         "replications": replications
     }
