@@ -65,20 +65,29 @@ export class AnalyticsModal {
             const balkThresh = payload.balkThreshold || 8;
 
             const resProb = Math.round((payload.resProb || 0.2) * 100);
+            const resMin = payload.resArrivalMin || 30.0;
+            const resMax = payload.resArrivalMax || 180.0;
             const takeoutProb = Math.round((payload.takeoutProb || 0.5) * 100);
             const balkProb = Math.round((payload.balkProb || 0.5) * 100);
             const renegeProb = Math.round((payload.renegeProb || 0.3) * 100);
+            const strikes = payload.maxStrikes || 3;
             const warmup = payload.warmupTime || 0;
+            const payMin = payload.payMin || 2.0;
+            const payMax = payload.payMax || 10.0;
+            const dwellMin = payload.dwellMin || 900.0;
+            const dwellMax = payload.dwellMax || 3600.0;
 
             this.configListDiv.innerHTML = `
                 <div><strong>Cashiers:</strong> ${cashiers} | <strong>Baristas:</strong> ${baristas} | <strong>Tables:</strong> ${payload.tables || 5}</div>
                 <div><strong>Arrival Rate:</strong> 1 every ${arrivalRate.toFixed(1)}s <span style="color:#888; font-size:11px;">(≈ ${Math.round(3600/arrivalRate)} / hr)</span></div>
-                <div><strong>Cashier Service:</strong> ${decideMin}s - ${decideMax}s</div>
+                <div><strong>Cashier Service:</strong> Order: ${decideMin}s-${decideMax}s | Pay: ${payMin}s-${payMax}s</div>
                 <div><strong>Barista Service:</strong> ${baristaMin}s - ${baristaMax}s</div>
+                <div><strong>Dine-In Time:</strong> ${dwellMin}s - ${dwellMax}s</div>
                 <div style="margin-top: 8px; font-weight: bold; color: var(--color-primary);">Logic & Reservations</div>
-                <div><strong>Reservations:</strong> ${resProb}% | <strong>Takeout:</strong> ${takeoutProb}%</div>
+                <div><strong>Reservations:</strong> ${resProb}% (Arrival Window: ${resMin}s-${resMax}s)</div>
+                <div><strong>Takeout:</strong> ${takeoutProb}%</div>
                 <div><strong>Balking (Line too long):</strong> ${balkProb}% (Threshold: ${balkThresh})</div>
-                <div><strong>Reneging (Tired of waiting):</strong> ${renegeProb}%</div>
+                <div><strong>Reneging (Tired of waiting):</strong> ${renegeProb}% (Strikes: ${strikes})</div>
                 <div><strong>Warm-Up Time:</strong> ${warmup}s</div>
             `;
         }
