@@ -67,7 +67,7 @@ export class AnalyticsModal {
             this.configListDiv.innerHTML = `
                 <div><strong>Cashiers:</strong> ${cashiers}</div>
                 <div><strong>Baristas:</strong> ${baristas}</div>
-                <div><strong>Arrival Rate:</strong> 1 every ${arrivalRate.toFixed(1)}s</div>
+                <div><strong>Arrival Rate:</strong> 1 every ${arrivalRate.toFixed(1)}s <span style="color:#888; font-size:11px;">(≈ ${Math.round(3600/arrivalRate)} / hr)</span></div>
                 <div><strong>Cashier Service:</strong> ${decideMin}s - ${decideMax}s</div>
                 <div><strong>Barista Service:</strong> ${baristaMin}s - ${baristaMax}s</div>
                 <div><strong>Balk Threshold:</strong> ${balkThresh} customers</div>
@@ -157,9 +157,13 @@ export class AnalyticsModal {
             if (el) el.innerText = val;
         };
 
-        setText('res-wait', data.avg_wait_time.toFixed(1) + 's');
+        setText('res-wait', (data.avg_wait_time_cashier).toFixed(1) + 's');
         setText('res-cycle', (data.avg_cycle_time / 60).toFixed(1) + ' mins');
         setText('res-lost-customers', (data.avg_lost_customers || 0).toFixed(1));
+        
+        const payload = configState.getConfig();
+        const arrivalsPerHr = Math.round(3600 / parseFloat(payload.arrival));
+        setText('res-arrivals', arrivalsPerHr + ' / hr');
         setText('res-throughput', data.throughput_per_hour.toFixed(0) + ' / hr');
         
         // Breakdown logic
