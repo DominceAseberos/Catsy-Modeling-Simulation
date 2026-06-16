@@ -3,7 +3,7 @@ __pycache__/
 *.pyc
 .env
 .DS_Store
-*.md
+#*.md
 Catsy_Source_Code.zip
 documentation_for_word.html
 presentation_script.html
